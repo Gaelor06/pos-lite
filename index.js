@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-
+const db = require('./database/db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -15,3 +15,8 @@ app.get('/api/ping', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
+
+//ejemplo para ver si conecta
+console.log('Conexión a la base de datos establecida:');
+const tablas = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+console.log(tablas);
