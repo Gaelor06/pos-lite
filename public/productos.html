@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Productos</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    :root {
+        --bg: #F4F6F5;
+        --panel: #FFFFFF;
+        --ink: #1C2B2A;
+        --ink-soft: #5B6B69;
+        --accent: #1F6F63;
+        --accent-soft: #E7F0EE;
+        --border: #DCE4E2;
+        --danger: #B5433C;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    header.app-header {
+        background: var(--ink);
+        color: #fff;
+        padding: 1.1rem 1.5rem;
+    }
+    header.app-header h1 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin: 0;
+        letter-spacing: 0.01em;
+    }
+    header.app-header p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #C7D6D3;
+    }
+
+    .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.25rem;
+    }
+
+    .panel h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        font-size: 0.82rem;
+        color: var(--ink-soft);
+        margin-bottom: 0.2rem;
+    }
+
+    .btn-accent {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+    }
+    .btn-accent:hover { background: #185a50; color: #fff; }
+
+    table.tabla-productos {
+        font-size: 0.9rem;
+    }
+    table.tabla-productos th {
+        font-weight: 600;
+        color: var(--ink-soft);
+        font-size: 0.78rem;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+    table.tabla-productos td {
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .badge-activo {
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 500;
+        font-size: 0.75rem;
+        padding: 0.3em 0.6em;
+        border-radius: 6px;
+    }
+    .badge-inactivo {
+        background: #F1E7E6;
+        color: var(--danger);
+        font-weight: 500;
+        font-size: 0.75rem;
+        padding: 0.3em 0.6em;
+        border-radius: 6px;
+    }
+
+    .precio-input {
+        width: 6.5rem;
+        display: inline-block;
+    }
+
+    .estado-mensaje {
+        font-size: 0.85rem;
+        min-height: 1.2rem;
+    }
+
+    .vacio {
+        color: var(--ink-soft);
+        font-size: 0.9rem;
+        padding: 2rem 0;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+    <h1>POSLite</h1>
+    <p>Gestión de productos — prototipo de prueba</p>
+</header>
+
+<main class="container-fluid py-4">
+    <div class="row g-4">
+
+        <!-- Formulario de creación -->
+        <div class="col-12 col-lg-4">
+            <div class="panel">
+                <h2>Nuevo producto</h2>
+                <form id="form-crear">
+                    <div class="mb-2">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="c-nombre" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Categoría</label>
+                        <select class="form-select" id="c-categoria"></select>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Unidad de venta</label>
+                            <select class="form-select" id="c-unidad">
+                                <option value="kg">Kilogramo (kg)</option>
+                                <option value="unidad">Unidad</option>
+                            </select>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Controla inventario</label>
+                            <select class="form-select" id="c-controla">
+                                <option value="1">Sí</option>
+                                <option value="0">No (ej. caldosa, empaque)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Precio de costo (₡)</label>
+                            <input type="number" class="form-control" id="c-costo" min="0" required>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <label class="form-label">Precio de venta (₡)</label>
+                            <input type="number" class="form-control" id="c-venta" min="0" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock mínimo (en unidad mínima: gramos o unidades)</label>
+                        <input type="number" class="form-control" id="c-stock-minimo" min="0" value="0">
+                    </div>
+                    <button type="submit" class="btn btn-accent w-100">Crear producto</button>
+                    <div class="estado-mensaje mt-2" id="c-estado"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabla de productos -->
+        <div class="col-12 col-lg-8">
+            <div class="panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Productos</h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-recargar">Recargar</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table tabla-productos">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Unidad</th>
+                                <th>Precio venta</th>
+                                <th>Stock mín.</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-productos"></tbody>
+                    </table>
+                    <div class="vacio d-none" id="tabla-vacia">Aún no hay productos registrados.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal simple para editar precio -->
+<div class="modal fade" id="modalPrecio" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cambiar precio de venta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="mp-id">
+                <label class="form-label">Nuevo precio (₡)</label>
+                <input type="number" class="form-control" id="mp-precio" min="0">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-accent w-100" id="mp-guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script>
+// Cambia esto si tu servidor corre en otro puerto
+const API_BASE = 'http://localhost:3000/api';
+
+// Categorías de ejemplo — reemplaza esto por un fetch a /api/categorias
+// cuando tengas ese endpoint armado. Por ahora quedan fijas para poder probar productos.
+const CATEGORIAS_TEMP = [
+    { id: 1, nombre: 'Pescado' },
+    { id: 2, nombre: 'Marisco' },
+    { id: 3, nombre: 'Refresco' },
+    { id: 4, nombre: 'Caldosa' },
+    { id: 5, nombre: 'Snack/Paquetillo' },
+    { id: 6, nombre: 'Empanizador' },
+    { id: 7, nombre: 'Otros' },
+];
+
+function llenarSelectCategorias() {
+    const select = document.getElementById('c-categoria');
+    select.innerHTML = CATEGORIAS_TEMP
+        .map(cat => `<option value="${cat.id}">${cat.nombre}</option>`)
+        .join('');
+}
+
+function nombreCategoria(id) {
+    const cat = CATEGORIAS_TEMP.find(c => c.id === id);
+    return cat ? cat.nombre : '—';
+}
+
+function formatoColones(valor) {
+    return '₡' + Number(valor).toLocaleString('es-CR');
+}
+
+async function cargarProductos() {
+    const tbody = document.getElementById('tbody-productos');
+    const vacio = document.getElementById('tabla-vacia');
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/productos`);
+        const productos = await respuesta.json();
+
+        if (productos.length === 0) {
+            tbody.innerHTML = '';
+            vacio.classList.remove('d-none');
+            return;
+        }
+        vacio.classList.add('d-none');
+
+        tbody.innerHTML = productos.map(p => `
+            <tr>
+                <td>${p.nombre}</td>
+                <td>${nombreCategoria(p.categoria_id)}</td>
+                <td>${p.unidad_venta}</td>
+                <td>${formatoColones(p.precio_venta)}</td>
+                <td>${p.stock_minimo}</td>
+                <td>
+                    <span class="${p.activo ? 'badge-activo' : 'badge-inactivo'}">
+                        ${p.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalPrecio(${p.id}, ${p.precio_venta})">
+                        Precio
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="alternarActivo(${p.id}, ${p.activo})">
+                        ${p.activo ? 'Desactivar' : 'Activar'}
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-3">
+            No se pudo conectar con el servidor (${error.message}). ¿Está corriendo node index.js?
+        </td></tr>`;
+    }
+}
+
+document.getElementById('form-crear').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const estado = document.getElementById('c-estado');
+    estado.textContent = 'Guardando...';
+    estado.className = 'estado-mensaje mt-2 text-muted';
+
+    const producto = {
+        nombre: document.getElementById('c-nombre').value,
+        categoria_id: Number(document.getElementById('c-categoria').value),
+        unidad_venta: document.getElementById('c-unidad').value,
+        controla_inventario: Number(document.getElementById('c-controla').value),
+        precio_costo: Number(document.getElementById('c-costo').value),
+        precio_venta: Number(document.getElementById('c-venta').value),
+        stock_minimo: Number(document.getElementById('c-stock-minimo').value),
+    };
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/productos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(producto)
+        });
+
+        if (!respuesta.ok) throw new Error('El servidor respondió con un error');
+
+        estado.textContent = 'Producto creado.';
+        estado.className = 'estado-mensaje mt-2 text-success';
+        document.getElementById('form-crear').reset();
+        cargarProductos();
+
+    } catch (error) {
+        estado.textContent = `No se pudo crear: ${error.message}`;
+        estado.className = 'estado-mensaje mt-2 text-danger';
+    }
+});
+
+document.getElementById('btn-recargar').addEventListener('click', cargarProductos);
+
+// --- Modal de precio ---
+const modalPrecio = new bootstrap.Modal(document.getElementById('modalPrecio'));
+
+function abrirModalPrecio(id, precioActual) {
+    document.getElementById('mp-id').value = id;
+    document.getElementById('mp-precio').value = precioActual;
+    modalPrecio.show();
+}
+
+document.getElementById('mp-guardar').addEventListener('click', async () => {
+    const id = document.getElementById('mp-id').value;
+    const nuevoPrecio = Number(document.getElementById('mp-precio').value);
+
+    await fetch(`${API_BASE}/productos/${id}/precio`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ precio_venta: nuevoPrecio })
+    });
+
+    modalPrecio.hide();
+    cargarProductos();
+});
+
+// --- Activar/desactivar ---
+async function alternarActivo(id, estadoActual) {
+    await fetch(`${API_BASE}/productos/${id}/activo`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activo: !estadoActual })
+    });
+    cargarProductos();
+}
+
+// Arranque
+llenarSelectCategorias();
+cargarProductos();
+</script>
+</body>
+</html>
