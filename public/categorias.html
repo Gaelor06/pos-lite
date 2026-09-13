@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Categorías</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    table.tabla-categorias { font-size: 0.9rem; }
+    table.tabla-categorias th {
+        font-weight: 600; color: var(--ink-soft); font-size: 0.78rem;
+        border-bottom: 1px solid var(--border);
+    }
+    table.tabla-categorias td { vertical-align: middle; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body data-pagina="categorias">
+
+<div id="app-nav"></div>
+
+<main class="container-fluid py-4">
+    <div class="row g-4">
+
+        <div class="col-12 col-lg-4">
+            <div class="panel">
+                <h2>Nueva categoría</h2>
+                <form id="form-crear">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="c-nombre" required>
+                    </div>
+                    <button type="submit" class="btn btn-accent w-100">Crear categoría</button>
+                    <div class="estado-mensaje mt-2" id="c-estado"></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-8">
+            <div class="panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Categorías existentes</h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-recargar">Recargar</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table tabla-categorias">
+                        <thead>
+                            <tr><th>#</th><th>Nombre</th></tr>
+                        </thead>
+                        <tbody id="tbody-categorias"></tbody>
+                    </table>
+                    <div class="vacio d-none" id="tabla-vacia">Aún no hay categorías registradas.</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+
+async function cargarCategorias() {
+    const tbody = document.getElementById('tbody-categorias');
+    const vacio = document.getElementById('tabla-vacia');
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/categorias`);
+        const categorias = await respuesta.json();
+
+        if (categorias.length === 0) {
+            tbody.innerHTML = '';
+            vacio.classList.remove('d-none');
+            return;
+        }
+        vacio.classList.add('d-none');
+
+        tbody.innerHTML = categorias.map(c => `
+            <tr><td>${c.id}</td><td>${c.nombre}</td></tr>
+        `).join('');
+
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger py-3">
+            No se pudo conectar con el servidor (${error.message}).
+        </td></tr>`;
+    }
+}
+
+document.getElementById('form-crear').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const estado = document.getElementById('c-estado');
+    estado.textContent = 'Guardando...';
+    estado.className = 'estado-mensaje mt-2 text-muted';
+
+    const nombre = document.getElementById('c-nombre').value;
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/categorias`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre })
+        });
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) throw new Error(datos.error || 'Error al crear la categoría');
+
+        estado.textContent = 'Categoría creada.';
+        estado.className = 'estado-mensaje mt-2 text-success';
+        document.getElementById('form-crear').reset();
+        cargarCategorias();
+        setTimeout(() => {
+            if (estado.classList.contains('text-success')) estado.textContent = '';
+        }, 3000);
+
+    } catch (error) {
+        estado.textContent = `No se pudo crear: ${error.message}`;
+        estado.className = 'estado-mensaje mt-2 text-danger';
+    }
+});
+
+document.getElementById('btn-recargar').addEventListener('click', cargarCategorias);
+
+cargarCategorias();
+</script>
+</body>
+</html>

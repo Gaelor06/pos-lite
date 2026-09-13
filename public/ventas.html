@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Ventas</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    .ventas-layout { min-height: calc(100vh - 58px); }
+    .panel-ventas { height: 100%; }
+    .busqueda-ventas { max-width: 24rem; }
+    .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: .75rem; }
+    .producto-boton { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: .85rem; text-align: left; color: var(--ink); min-height: 108px; transition: border-color .15s ease, transform .15s ease; }
+    .producto-boton:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .producto-boton:disabled { opacity: .55; cursor: not-allowed; }
+    .producto-nombre { display: block; font-weight: 600; line-height: 1.2; }
+    .producto-meta { display: block; color: var(--ink-soft); font-size: .78rem; margin-top: .45rem; }
+    .carrito-linea { border-bottom: 1px solid var(--border); padding: .75rem 0; }
+    .carrito-linea:last-child { border-bottom: 0; }
+    .cantidad-control { width: 6rem; }
+    .total-venta { font-size: 1.7rem; font-weight: 700; color: var(--accent); }
+    .resumen-venta { border-top: 1px solid var(--border); padding-top: 1rem; }
+    .cobro-destacado { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+    .cobro-destacado .form-label { font-weight: 600; color: var(--ink); }
+    .monto-recibido { font-size: 1.35rem; font-weight: 600; height: 3.25rem; }
+    .vuelto-valor { color: var(--accent); font-size: 1.45rem; }
+    .total-destacado { background: var(--ink); color: #fff; border-radius: 8px; padding: 1rem 1.15rem; }
+    .total-destacado .total-venta { color: #fff; font-size: 2.1rem; }
+    .carrito-contenido { max-height: 33vh; overflow-y: auto; }
+    .seccion-titulo { font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+    .cliente-opcional { background: rgba(255, 255, 255, .55); border: 1px solid var(--border); border-radius: 6px; padding: .75rem; }
+    .estado-ventas { min-height: 1.4rem; font-size: .85rem; }
+    @media (min-width: 992px) { .carrito-panel { position: sticky; top: 1rem; } }
+</style>
+</head>
+<body data-pagina="ventas">
+<div id="app-nav"></div>
+
+<main class="container-fluid py-4">
+    <div class="row g-4 ventas-layout">
+        <section class="col-12 col-lg-7">
+            <div class="panel panel-ventas">
+                <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="mb-1">Venta actual</h2>
+                        <div class="text-muted small" id="estado-productos">Cargando productos...</div>
+                    </div>
+                    <input class="form-control busqueda-ventas" id="buscar-producto" type="search" placeholder="Buscar producto..." autocomplete="off">
+                </div>
+                <div class="productos-grid" id="productos-grid"></div>
+                <div class="vacio d-none" id="productos-vacios">No hay productos activos que coincidan con la búsqueda.</div>
+            </div>
+        </section>
+
+        <section class="col-12 col-lg-5">
+            <div class="panel panel-ventas carrito-panel">
+                <div class="total-destacado mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small">Total a cobrar</span>
+                        <span class="badge bg-light text-dark">Redondeo ₡50</span>
+                    </div>
+                    <div class="total-venta" id="total">₡0</div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="seccion-titulo">Productos seleccionados</span>
+                    <button class="btn btn-sm btn-outline-secondary" id="vaciar-carrito" type="button">Vaciar</button>
+                </div>
+                <div class="carrito-contenido" id="carrito-lista">
+                    <div class="vacio">Agrega productos para comenzar la venta.</div>
+                </div>
+
+                <div class="resumen-venta mt-3">
+                    <div class="d-flex justify-content-between text-muted">
+                        <span>Subtotal</span><span id="subtotal">₡0</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted">
+                        <span>Redondeo a ₡50</span><span id="redondeo">₡0</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <span class="fw-semibold">Total final</span><strong id="total-secundario">₡0</strong>
+                    </div>
+                </div>
+
+                <form id="form-cobro" class="cobro-destacado mt-3">
+                    <div class="seccion-titulo mb-2">Cobro</div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="venta-con-nombre">
+                        <label class="form-check-label" for="venta-con-nombre">Venta con nombre o cliente</label>
+                    </div>
+                    <div class="cliente-opcional d-none mb-3" id="cliente-opcional">
+                        <label class="form-label" for="cliente-nombre">Nombre para esta venta</label>
+                        <input class="form-control mb-2" id="cliente-nombre" placeholder="Nombre o empresa" maxlength="120">
+                        <div class="form-text mb-2">Este nombre queda solo en la venta.</div>
+                        <label class="form-label" for="cliente">Cliente guardado (opcional)</label>
+                        <select class="form-select" id="cliente">
+                            <option value="">No seleccionar cliente guardado</option>
+                        </select>
+                    </div>
+                    <label class="form-label" for="metodo-pago">¿Cómo paga el cliente?</label>
+                    <select class="form-select mb-2" id="metodo-pago">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="sinpe">SINPE móvil</option>
+                        <option value="tarjeta">Tarjeta</option>
+                    </select>
+                    <div id="efectivo-box">
+                        <label class="form-label" for="monto-recibido">Monto recibido</label>
+                        <input class="form-control monto-recibido" id="monto-recibido" type="number" min="0" step="50" placeholder="₡0">
+                        <div class="d-flex justify-content-between mt-2 small">
+                            <span class="text-muted">Vuelto</span><strong class="vuelto-valor" id="vuelto">₡0</strong>
+                        </div>
+                    </div>
+                    <button class="btn btn-accent w-100 mt-3" id="cobrar" type="submit" disabled>Cobrar venta</button>
+                    <div class="estado-ventas mt-2" id="estado-cobro"></div>
+                </form>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+const productosGrid = document.getElementById('productos-grid');
+const productosVacios = document.getElementById('productos-vacios');
+const carritoLista = document.getElementById('carrito-lista');
+const buscarProducto = document.getElementById('buscar-producto');
+const metodoPago = document.getElementById('metodo-pago');
+const montoRecibido = document.getElementById('monto-recibido');
+const cobrar = document.getElementById('cobrar');
+const carrito = new Map();
+let productos = [];
+let clientes = [];
+const clienteOpcional = document.getElementById('cliente-opcional');
+
+function colones(valor) {
+    return '₡' + Number(valor).toLocaleString('es-CR');
+}
+
+function escaparHtml(valor) {
+    return String(valor).replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+}
+
+function cantidadBase(cantidad, producto) {
+    return producto.unidad_venta === 'kg' ? Math.round(cantidad * 1000) : Math.round(cantidad);
+}
+
+function renderProductos() {
+    const termino = buscarProducto.value.trim().toLocaleLowerCase();
+    const visibles = productos.filter(producto => producto.nombre.toLocaleLowerCase().includes(termino));
+    productosVacios.classList.toggle('d-none', visibles.length > 0);
+    productosGrid.innerHTML = visibles.map(producto => `
+        <button class="producto-boton" type="button" data-producto-id="${producto.id}">
+            <span class="producto-nombre">${escaparHtml(producto.nombre)}</span>
+            <span class="producto-meta">${colones(producto.precio_venta)} / ${producto.unidad_venta}</span>
+        </button>
+    `).join('');
+}
+
+function renderCarrito() {
+    if (carrito.size === 0) {
+        carritoLista.innerHTML = '<div class="vacio">Agrega productos para comenzar la venta.</div>';
+        cobrar.disabled = true;
+    } else {
+        carritoLista.innerHTML = [...carrito.values()].map(linea => `
+            <div class="carrito-linea" data-linea-id="${linea.producto.id}">
+                <div class="d-flex justify-content-between gap-2">
+                    <div>
+                        <strong>${escaparHtml(linea.producto.nombre)}</strong>
+                        <div class="small text-muted">${colones(linea.producto.precio_venta)} / ${linea.producto.unidad_venta}</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger quitar-linea" type="button" aria-label="Quitar producto">Quitar</button>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <input class="form-control form-control-sm cantidad-control cantidad-linea" type="text" inputmode="decimal" min="${linea.producto.unidad_venta === 'kg' ? '0.5' : '1'}" step="${linea.producto.unidad_venta === 'kg' ? '0.5' : '1'}" value="${linea.cantidad}">
+                    <strong class="linea-subtotal">${colones(Math.round(linea.cantidad * linea.producto.precio_venta))}</strong>
+                </div>
+            </div>
+        `).join('');
+        cobrar.disabled = false;
+    }
+
+    const subtotal = [...carrito.values()].reduce((total, linea) => total + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
+    const total = Math.round(subtotal / 50) * 50;
+    document.getElementById('subtotal').textContent = colones(subtotal);
+    document.getElementById('redondeo').textContent = colones(total - subtotal);
+    document.getElementById('total').textContent = colones(total);
+    document.getElementById('total-secundario').textContent = colones(total);
+    actualizarVuelto();
+}
+
+function actualizarResumen() {
+    const subtotal = [...carrito.values()].reduce((total, linea) => total + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
+    const total = Math.round(subtotal / 50) * 50;
+    document.getElementById('subtotal').textContent = colones(subtotal);
+    document.getElementById('redondeo').textContent = colones(total - subtotal);
+    document.getElementById('total').textContent = colones(total);
+    document.getElementById('total-secundario').textContent = colones(total);
+    actualizarVuelto();
+}
+
+function actualizarVuelto() {
+    const total = [...carrito.values()].reduce((suma, linea) => suma + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
+    const totalRedondeado = Math.round(total / 50) * 50;
+    const recibido = Number(montoRecibido.value) || 0;
+    document.getElementById('vuelto').textContent = colones(Math.max(0, recibido - totalRedondeado));
+}
+
+function agregarProducto(id) {
+    const producto = productos.find(item => item.id === id);
+    if (!producto) return;
+    const linea = carrito.get(id);
+    const incremento = producto.unidad_venta === 'kg' ? 0.5 : 1;
+    carrito.set(id, { producto, cantidad: linea ? linea.cantidad + incremento : incremento });
+    renderCarrito();
+}
+
+async function cargarProductos() {
+    try {
+        const respuesta = await fetch(`${API_BASE}/productos`);
+        if (!respuesta.ok) throw new Error('No se pudieron cargar los productos');
+        productos = await respuesta.json();
+        document.getElementById('estado-productos').textContent = `${productos.length} producto(s) disponible(s)`;
+        productosVacios.classList.remove('text-danger');
+        renderProductos();
+    } catch (error) {
+        document.getElementById('estado-productos').textContent = error.message;
+        productosVacios.textContent = 'No se pudo conectar con el servidor.';
+        productosVacios.classList.remove('d-none');
+        productosVacios.classList.add('text-danger');
+    }
+}
+
+async function cargarClientes() {
+    try {
+        const respuesta = await fetch(`${API_BASE}/clientes`);
+        if (!respuesta.ok) throw new Error('No se pudieron cargar los clientes');
+        clientes = await respuesta.json();
+        document.getElementById('cliente').innerHTML = '<option value="">No seleccionar cliente guardado</option>' + clientes.map(cliente => `<option value="${cliente.id}">${escaparHtml(cliente.nombre)}</option>`).join('');
+    } catch (error) {
+        document.getElementById('estado-cobro').textContent = error.message;
+        document.getElementById('estado-cobro').className = 'estado-ventas mt-2 text-danger';
+    }
+}
+
+document.getElementById('venta-con-nombre').addEventListener('change', evento => {
+    clienteOpcional.classList.toggle('d-none', !evento.target.checked);
+    if (!evento.target.checked) {
+        document.getElementById('cliente-nombre').value = '';
+        document.getElementById('cliente').value = '';
+    }
+});
+
+productosGrid.addEventListener('click', evento => {
+    const boton = evento.target.closest('[data-producto-id]');
+    if (boton) agregarProducto(Number(boton.dataset.productoId));
+});
+
+carritoLista.addEventListener('input', evento => {
+    if (!evento.target.classList.contains('cantidad-linea')) return;
+    const id = Number(evento.target.closest('[data-linea-id]').dataset.lineaId);
+    const linea = carrito.get(id);
+    const cantidad = Number(evento.target.value.replace(',', '.'));
+    if (!linea || !Number.isFinite(cantidad) || cantidad <= 0) return;
+    linea.cantidad = cantidad;
+    evento.target.closest('[data-linea-id]').querySelector('.linea-subtotal').textContent = colones(Math.round(cantidad * linea.producto.precio_venta));
+    actualizarResumen();
+});
+
+carritoLista.addEventListener('click', evento => {
+    if (!evento.target.classList.contains('quitar-linea')) return;
+    carrito.delete(Number(evento.target.closest('[data-linea-id]').dataset.lineaId));
+    renderCarrito();
+});
+
+buscarProducto.addEventListener('input', renderProductos);
+montoRecibido.addEventListener('input', actualizarVuelto);
+document.getElementById('vaciar-carrito').addEventListener('click', () => { carrito.clear(); renderCarrito(); });
+metodoPago.addEventListener('change', () => {
+    const esEfectivo = metodoPago.value === 'efectivo';
+    document.getElementById('efectivo-box').classList.toggle('d-none', !esEfectivo);
+    if (!esEfectivo) montoRecibido.value = '';
+    actualizarVuelto();
+});
+
+document.getElementById('form-cobro').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const estado = document.getElementById('estado-cobro');
+    const subtotal = [...carrito.values()].reduce((suma, linea) => suma + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
+    const total = Math.round(subtotal / 50) * 50;
+    const recibido = Number(montoRecibido.value) || 0;
+    if (metodoPago.value === 'efectivo' && recibido < total) {
+        estado.className = 'estado-ventas mt-2 text-danger';
+        estado.textContent = 'El monto recibido es menor que el total.';
+        return;
+    }
+    estado.className = 'estado-ventas mt-2 text-muted';
+    estado.textContent = 'Preparando venta...';
+    cobrar.disabled = true;
+    try {
+        const respuesta = await fetch(`${API_BASE}/ventas`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_id: 1, cliente_id: Number(document.getElementById('cliente').value) || null, comprador_nombre: document.getElementById('cliente-nombre').value.trim() || null, metodo_pago: metodoPago.value, productos: [...carrito.values()].map(linea => ({ producto_id: linea.producto.id, cantidad: linea.cantidad, precio_aplicado: linea.producto.precio_venta })) })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo registrar la venta');
+        carrito.clear(); montoRecibido.value = ''; estado.className = 'estado-ventas mt-2 text-success'; estado.textContent = `Venta #${datos.id || datos} registrada.`; renderCarrito();
+        setTimeout(() => { if (estado.classList.contains('text-success')) estado.textContent = ''; }, 4000);
+    } catch (error) {
+        estado.className = 'estado-ventas mt-2 text-danger';
+        estado.textContent = error.message;
+        cobrar.disabled = carrito.size === 0;
+    }
+});
+
+function mostrarEstadoCobro(mensaje, clase) {
+    const estado = document.getElementById('estado-cobro');
+    estado.className = `estado-ventas mt-2 ${clase}`;
+    estado.textContent = mensaje;
+}
+
+cargarProductos();
+cargarClientes();
+</script>
+</body>
+</html>

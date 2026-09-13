@@ -5,70 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>POSLite — Productos</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
 <style>
-    :root {
-        --bg: #F4F6F5;
-        --panel: #FFFFFF;
-        --ink: #1C2B2A;
-        --ink-soft: #5B6B69;
-        --accent: #1F6F63;
-        --accent-soft: #E7F0EE;
-        --border: #DCE4E2;
-        --danger: #B5433C;
-    }
-
-    body {
-        background: var(--bg);
-        color: var(--ink);
-        font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
-    }
-
-    header.app-header {
-        background: var(--ink);
-        color: #fff;
-        padding: 1.1rem 1.5rem;
-    }
-    header.app-header h1 {
-        font-size: 1.15rem;
-        font-weight: 600;
-        margin: 0;
-        letter-spacing: 0.01em;
-    }
-    header.app-header p {
-        margin: 0;
-        font-size: 0.85rem;
-        color: #C7D6D3;
-    }
-
-    .panel {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 1.25rem;
-    }
-
-    .panel h2 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
-
-    .form-label {
-        font-size: 0.82rem;
-        color: var(--ink-soft);
-        margin-bottom: 0.2rem;
-    }
-
-    .btn-accent {
-        background: var(--accent);
-        color: #fff;
-        border: none;
-    }
-    .btn-accent:hover { background: #185a50; color: #fff; }
-
-    table.tabla-productos {
-        font-size: 0.9rem;
-    }
+    table.tabla-productos { font-size: 0.9rem; }
     table.tabla-productos th {
         font-weight: 600;
         color: var(--ink-soft);
@@ -80,48 +19,11 @@
         vertical-align: middle;
         border-bottom: 1px solid var(--border);
     }
-
-    .badge-activo {
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-weight: 500;
-        font-size: 0.75rem;
-        padding: 0.3em 0.6em;
-        border-radius: 6px;
-    }
-    .badge-inactivo {
-        background: #F1E7E6;
-        color: var(--danger);
-        font-weight: 500;
-        font-size: 0.75rem;
-        padding: 0.3em 0.6em;
-        border-radius: 6px;
-    }
-
-    .precio-input {
-        width: 6.5rem;
-        display: inline-block;
-    }
-
-    .estado-mensaje {
-        font-size: 0.85rem;
-        min-height: 1.2rem;
-    }
-
-    .vacio {
-        color: var(--ink-soft);
-        font-size: 0.9rem;
-        padding: 2rem 0;
-        text-align: center;
-    }
 </style>
 </head>
-<body>
+<body data-pagina="productos">
 
-<header class="app-header">
-    <h1>POSLite</h1>
-    <p>Gestión de productos — prototipo de prueba</p>
-</header>
+<div id="app-nav"></div>
 
 <main class="container-fluid py-4">
     <div class="row g-4">
@@ -137,7 +39,10 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Categoría</label>
-                        <select class="form-select" id="c-categoria"></select>
+                        <select class="form-select" id="c-categoria" required></select>
+                        <div class="form-text">
+                            ¿No aparece la que buscas? <a href="categorias.html">Crea una categoría nueva</a>.
+                        </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-6 mb-2">
@@ -225,31 +130,33 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/nav.js"></script>
 <script>
-// Cambia esto si tu servidor corre en otro puerto
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = '/api';
 
-// Categorías de ejemplo — reemplaza esto por un fetch a /api/categorias
-// cuando tengas ese endpoint armado. Por ahora quedan fijas para poder probar productos.
-const CATEGORIAS_TEMP = [
-    { id: 1, nombre: 'Pescado' },
-    { id: 2, nombre: 'Marisco' },
-    { id: 3, nombre: 'Refresco' },
-    { id: 4, nombre: 'Caldosa' },
-    { id: 5, nombre: 'Snack/Paquetillo' },
-    { id: 6, nombre: 'Empanizador' },
-    { id: 7, nombre: 'Otros' },
-];
+let CATEGORIAS = [];
 
-function llenarSelectCategorias() {
+async function cargarCategoriasEnSelect() {
     const select = document.getElementById('c-categoria');
-    select.innerHTML = CATEGORIAS_TEMP
-        .map(cat => `<option value="${cat.id}">${cat.nombre}</option>`)
-        .join('');
+    try {
+        const respuesta = await fetch(`${API_BASE}/categorias`);
+        CATEGORIAS = await respuesta.json();
+
+        if (CATEGORIAS.length === 0) {
+            select.innerHTML = '<option value="">No hay categorías — crea una primero</option>';
+            return;
+        }
+
+        select.innerHTML = CATEGORIAS
+            .map(cat => `<option value="${cat.id}">${cat.nombre}</option>`)
+            .join('');
+    } catch (error) {
+        select.innerHTML = '<option value="">No se pudo cargar categorías</option>';
+    }
 }
 
 function nombreCategoria(id) {
-    const cat = CATEGORIAS_TEMP.find(c => c.id === id);
+    const cat = CATEGORIAS.find(c => c.id === id);
     return cat ? cat.nombre : '—';
 }
 
@@ -297,7 +204,7 @@ async function cargarProductos() {
 
     } catch (error) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-3">
-            No se pudo conectar con el servidor (${error.message}). ¿Está corriendo node index.js?
+            No se pudo conectar con el servidor (${error.message}).
         </td></tr>`;
     }
 }
@@ -331,6 +238,9 @@ document.getElementById('form-crear').addEventListener('submit', async (evento) 
         estado.className = 'estado-mensaje mt-2 text-success';
         document.getElementById('form-crear').reset();
         cargarProductos();
+        setTimeout(() => {
+            if (estado.classList.contains('text-success')) estado.textContent = '';
+        }, 3000);
 
     } catch (error) {
         estado.textContent = `No se pudo crear: ${error.message}`;
@@ -338,9 +248,11 @@ document.getElementById('form-crear').addEventListener('submit', async (evento) 
     }
 });
 
-document.getElementById('btn-recargar').addEventListener('click', cargarProductos);
+document.getElementById('btn-recargar').addEventListener('click', () => {
+    cargarCategoriasEnSelect();
+    cargarProductos();
+});
 
-// --- Modal de precio ---
 const modalPrecio = new bootstrap.Modal(document.getElementById('modalPrecio'));
 
 function abrirModalPrecio(id, precioActual) {
@@ -363,7 +275,6 @@ document.getElementById('mp-guardar').addEventListener('click', async () => {
     cargarProductos();
 });
 
-// --- Activar/desactivar ---
 async function alternarActivo(id, estadoActual) {
     await fetch(`${API_BASE}/productos/${id}/activo`, {
         method: 'PATCH',
@@ -373,8 +284,7 @@ async function alternarActivo(id, estadoActual) {
     cargarProductos();
 }
 
-// Arranque
-llenarSelectCategorias();
+cargarCategoriasEnSelect();
 cargarProductos();
 </script>
 </body>

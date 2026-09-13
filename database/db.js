@@ -23,6 +23,19 @@ function conectar() {
         console.log('Base de datos creada desde schema.sql');
     }
 
+    const usuarios = db.prepare('SELECT COUNT(*) AS total FROM usuarios').get();
+    if (usuarios.total === 0) {
+        db.prepare(`
+            INSERT INTO usuarios (nombre, usuario, contrasena_hash, rol)
+            VALUES (?, ?, ?, ?)
+        `).run('Caja local', 'local', 'local', 'administrador');
+    }
+
+    const columnasVentas = db.prepare('PRAGMA table_info(ventas)').all();
+    if (!columnasVentas.some(columna => columna.name === 'comprador_nombre')) {
+        db.exec('ALTER TABLE ventas ADD COLUMN comprador_nombre TEXT');
+    }
+
     return db;
 }
 

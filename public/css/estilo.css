@@ -1,0 +1,120 @@
+/* public/css/estilo.css
+   Variables y componentes compartidos por todas las páginas de POSLite.
+   Cambiar un color o estilo aquí lo actualiza en todas las pantallas a la vez. */
+
+:root {
+    --bg: #F4F6F5;
+    --panel: #FFFFFF;
+    --ink: #1C2B2A;
+    --ink-soft: #5B6B69;
+    --accent: #1F6F63;
+    --accent-soft: #E7F0EE;
+    --border: #DCE4E2;
+    --danger: #B5433C;
+    --muted-bg: #EEF1F0;
+}
+
+html {
+    background: var(--bg);
+}
+
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    min-height: 100vh;
+}
+
+/* --- Barra superior de navegación (pestañas) --- */
+.app-nav {
+    background: var(--ink);
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+}
+.app-nav .marca {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.9rem 1.2rem 0.9rem 0;
+    white-space: nowrap;
+}
+.app-nav .tabs {
+    display: flex;
+    gap: 0.2rem;
+}
+.app-nav .tab {
+    color: #B9C7C4;
+    text-decoration: none;
+    font-size: 0.86rem;
+    font-weight: 600;
+    padding: 0.9rem 0.9rem;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+.app-nav .tab:hover { color: #fff; }
+.app-nav .tab.activa {
+    color: #fff;
+    background: var(--accent);
+    border-bottom: 2px solid #fff;
+}
+.app-nav .tab.destacada {
+    color: #fff;
+    background: var(--accent);
+    border-radius: 6px;
+    margin: 0.5rem 0.3rem 0.5rem 0;
+    padding: 0.5rem 0.9rem;
+}
+.app-nav .tab.destacada:hover { background: #185a50; }
+.app-nav .tab.deshabilitada {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* --- Paneles / tarjetas de contenido --- */
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+}
+.panel h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-bottom: 0.2rem;
+}
+
+.btn-accent {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+}
+.btn-accent:hover { background: #185a50; color: #fff; }
+
+.badge-activo {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 0.3em 0.6em;
+    border-radius: 6px;
+}
+.badge-inactivo {
+    background: #F1E7E6;
+    color: var(--danger);
+    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 0.3em 0.6em;
+    border-radius: 6px;
+}
+
+.estado-mensaje { font-size: 0.85rem; min-height: 1.2rem; }
+.vacio { color: var(--ink-soft); font-size: 0.9rem; padding: 2rem 0; text-align: center; }

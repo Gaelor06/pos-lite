@@ -10,7 +10,7 @@
 --       - 'kg'     -> gramos      (ej. 500  = 0.500 kg)
 --       - 'unidad' -> unidades    (ej. 3    = 3 unidades)
 --   * Fechas/horas: TEXT en formato ISO 8601 (datetime('now'))
---   * Redondeo de venta: al múltiplo de ₡100 más cercano
+--   * Redondeo de venta: al múltiplo de ₡50 más cercano
 --     (la fórmula exacta se aplica en la capa de servicios, no aquí)
 -- ============================================================
 
@@ -115,8 +115,9 @@ CREATE TABLE ventas (
     fecha_hora          TEXT    NOT NULL DEFAULT (datetime('now')),
     usuario_id          INTEGER NOT NULL REFERENCES usuarios(id),
     cliente_id          INTEGER REFERENCES clientes(id),        -- NULL si no aplica
+    comprador_nombre    TEXT,                                   -- nombre puntual de esta venta, no crea cliente
     total_real          INTEGER NOT NULL,   -- suma exacta de subtotales
-    total_cobrado        INTEGER NOT NULL,   -- después de redondeo (múltiplo de ₡100)
+    total_cobrado        INTEGER NOT NULL,   -- después de redondeo (múltiplo de ₡50)
     estado              TEXT    NOT NULL DEFAULT 'completada'
                             CHECK (estado IN ('completada','cancelada')),
     motivo_cancelacion  TEXT,
