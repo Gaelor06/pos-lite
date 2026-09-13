@@ -21,10 +21,22 @@ const productoRoutes = require('./routes/productoRoutes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const ventaRoutes = require('./routes/ventaRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
+const inventarioRoutes = require('./routes/inventarioRoutes');
+const gastoRoutes = require('./routes/gastoRoutes');
+const cajaRoutes = require('./routes/cajaRoutes');
+const authRoutes = require('./routes/authRoutes');
+const { requerirAutenticacion } = require('./src/middleware/authMiddleware');
+const usuarioRoutes = require('./routes/usuarioRoutes');
+app.use('/api/auth', authRoutes);
+app.use('/api', requerirAutenticacion);
+app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/ventas', ventaRoutes);
 app.use('/api/clientes', clienteRoutes);
+app.use('/api/inventario', inventarioRoutes);
+app.use('/api/gastos', gastoRoutes);
+app.use('/api/caja', cajaRoutes);
 
 // Ruta de prueba
 app.get('/api/ping', (req, res) => {

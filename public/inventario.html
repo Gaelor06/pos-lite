@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Inventario</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    .inventario-tabla { font-size: .9rem; }
+    .inventario-tabla th { color: var(--ink-soft); font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
+    .stock-alerta { color: var(--danger); font-weight: 700; }
+    .stock-ok { color: var(--accent); font-weight: 700; }
+    .fila-stock-bajo td { background: #FFF1F0; }
+    .movimiento-entrada { color: var(--accent); font-weight: 600; }
+    .movimiento-salida { color: var(--danger); font-weight: 600; }
+    .ayuda-inventario { color: var(--ink-soft); font-size: .82rem; }
+    .botones-inventario { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .modo-foto #app-nav,
+    .modo-foto .col-lg-5,
+    .modo-foto .movimientos-panel,
+    .modo-foto #btn-recargar,
+    .modo-foto .botones-inventario .solo-pantalla { display: none !important; }
+    .modo-foto main { padding-top: 1rem !important; }
+    .modo-foto .row { margin: 0; }
+    .modo-foto .col-lg-7 { width: 100%; }
+    .modo-foto .panel { border: 0; }
+    .modo-foto .inventario-tabla { font-size: 1.2rem; }
+    .modo-foto .inventario-tabla th { font-size: .95rem; }
+    .modo-foto .inventario-tabla .columna-extra { display: none; }
+    @media print {
+        .inventario-tabla .columna-extra { display: none; }
+    }
+    .modo-foto .botones-inventario .btn-foto { display: inline-block; }
+    .btn-foto { display: none; }
+    @media print {
+        #app-nav, .col-lg-5, .movimientos-panel, #btn-recargar, .botones-inventario { display: none !important; }
+        .col-lg-7 { width: 100%; }
+        .panel { border: 0; }
+        .inventario-tabla { font-size: 12pt; }
+        body { background: #fff; }
+    }
+</style>
+</head>
+<body data-pagina="inventario">
+<div id="app-nav"></div>
+
+<main class="container-fluid py-4">
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-7">
+            <div class="panel panel-existencias h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Existencias actuales</h2>
+                    <div class="botones-inventario">
+                        <button class="btn btn-sm btn-outline-secondary solo-pantalla" id="btn-recargar" type="button">Recargar</button>
+                        <button class="btn btn-sm btn-outline-secondary solo-pantalla" id="btn-imprimir" type="button">Imprimir / PDF</button>
+                        <button class="btn btn-sm btn-outline-secondary solo-pantalla" id="btn-excel" type="button">Excel</button>
+                        <button class="btn btn-sm btn-accent btn-foto" id="btn-salir-foto" type="button">Salir de vista ampliada</button>
+                        <button class="btn btn-sm btn-outline-secondary solo-pantalla" id="btn-foto" type="button">Ver grande</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table inventario-tabla align-middle" id="tabla-inventario">
+                        <thead><tr><th>Producto</th><th class="columna-extra">Unidad</th><th>Disponible</th><th class="columna-extra">Mínimo</th><th class="columna-extra">Control</th></tr></thead>
+                        <tbody id="tbody-inventario"></tbody>
+                    </table>
+                </div>
+                <div class="vacio d-none" id="inventario-vacio">Aún no hay productos activos.</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="panel mb-4">
+                <h2>Entrada de mercadería</h2>
+                <p class="ayuda-inventario">Registra pescado o mercadería recién recibida. La cantidad se escribe en kg o unidades según el producto.</p>
+                <form id="form-entrada">
+                    <label class="form-label" for="entrada-producto">Producto</label>
+                    <select class="form-select mb-2" id="entrada-producto" required></select>
+                    <label class="form-label" for="entrada-cantidad">Cantidad recibida</label>
+                    <input class="form-control mb-2" id="entrada-cantidad" type="number" min="0.001" step="0.001" required>
+                    <label class="form-label" for="entrada-nota">Nota (opcional)</label>
+                    <input class="form-control mb-3" id="entrada-nota" maxlength="200" placeholder="Ej. Compra del proveedor">
+                    <button class="btn btn-accent w-100" type="submit">Registrar entrada</button>
+                </form>
+                <div class="estado-mensaje mt-2" id="entrada-estado"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Conversión o consumo interno</h2>
+                <p class="ayuda-inventario">Descuenta materia prima. Si el resultado no controla inventario, como ceviche, solo queda registrada la conversión.</p>
+                <form id="form-conversion">
+                    <label class="form-label" for="conversion-origen">Producto que se consume</label>
+                    <select class="form-select mb-2" id="conversion-origen" required></select>
+                    <label class="form-label" for="conversion-cantidad">Cantidad consumida</label>
+                    <input class="form-control mb-2" id="conversion-cantidad" type="number" min="0.001" step="0.001" required>
+                    <label class="form-label" for="conversion-resultado">Resultado (opcional)</label>
+                    <select class="form-select mb-2" id="conversion-resultado"></select>
+                    <div id="conversion-cantidad-wrap" class="d-none">
+                        <label class="form-label" for="conversion-cantidad-resultado">Cantidad resultante</label>
+                        <input class="form-control mb-2" id="conversion-cantidad-resultado" type="number" min="0.001" step="0.001">
+                    </div>
+                    <label class="form-label" for="conversion-nota">Nota</label>
+                    <input class="form-control mb-3" id="conversion-nota" maxlength="200" placeholder="Ej. Se abrió una caja para venta al detalle">
+                    <button class="btn btn-outline-primary w-100" type="submit">Registrar conversión</button>
+                </form>
+                <div class="estado-mensaje mt-2" id="conversion-estado"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel movimientos-panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0">Movimientos recientes</h2>
+            <span class="ayuda-inventario">Las ventas aparecen aquí automáticamente.</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table inventario-tabla align-middle">
+                <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Nota</th></tr></thead>
+                <tbody id="tbody-movimientos"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+let productos = [];
+
+function escaparHtml(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+}
+
+function formatoCantidad(cantidad, unidad) {
+    const valor = Number(cantidad) / (unidad === 'kg' ? 1000 : 1);
+    return `${valor.toLocaleString('es-CR', { maximumFractionDigits: 3 })} ${unidad}`;
+}
+
+function productoSeleccionado(id) {
+    return productos.find(producto => producto.id === Number(id));
+}
+
+function llenarSelectores() {
+    const opcionesControladas = productos.filter(producto => producto.controla_inventario);
+    const opcionesTodos = productos;
+    document.getElementById('entrada-producto').innerHTML = opcionesControladas.map(producto =>
+        `<option value="${producto.id}">${escaparHtml(producto.nombre)} (${producto.unidad_venta})</option>`).join('');
+    document.getElementById('conversion-origen').innerHTML = opcionesControladas.map(producto =>
+        `<option value="${producto.id}">${escaparHtml(producto.nombre)} (${producto.unidad_venta})</option>`).join('');
+    document.getElementById('conversion-resultado').innerHTML = '<option value="">Solo registrar consumo, sin producto resultante</option>' + opcionesTodos.map(producto =>
+        `<option value="${producto.id}">${escaparHtml(producto.nombre)}${producto.controla_inventario ? '' : ' (sin control)'}</option>`).join('');
+}
+
+function renderInventario() {
+    const tbody = document.getElementById('tbody-inventario');
+    document.getElementById('inventario-vacio').classList.toggle('d-none', productos.length > 0);
+    tbody.innerHTML = productos.map(producto => {
+        const bajoMinimo = producto.controla_inventario && producto.cantidad_disponible < producto.stock_minimo;
+        return `<tr class="${bajoMinimo ? 'fila-stock-bajo' : ''}">
+            <td>${escaparHtml(producto.nombre)}</td>
+            <td class="columna-extra">${producto.unidad_venta}</td>
+            <td class="${bajoMinimo ? 'stock-alerta' : 'stock-ok'}">${producto.controla_inventario ? formatoCantidad(producto.cantidad_disponible, producto.unidad_venta) : 'No contabiliza'}</td>
+            <td class="columna-extra">${producto.controla_inventario ? formatoCantidad(producto.stock_minimo, producto.unidad_venta) : '—'}</td>
+            <td class="columna-extra">${producto.controla_inventario ? 'Sí' : 'No'}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function cargarMovimientos() {
+    const respuesta = await fetch(`${API_BASE}/inventario/movimientos`);
+    const movimientos = await respuesta.json();
+    document.getElementById('tbody-movimientos').innerHTML = movimientos.map(movimiento => {
+        const esEntrada = movimiento.cantidad > 0;
+        const etiqueta = movimiento.tipo === 'consumo_interno' ? 'Consumo interno' : movimiento.tipo;
+        return `<tr>
+            <td>${escaparHtml(new Date(movimiento.creado_en.replace(' ', 'T') + 'Z').toLocaleString('es-CR'))}</td>
+            <td>${escaparHtml(movimiento.producto_nombre)}</td>
+            <td>${escaparHtml(etiqueta)}</td>
+            <td class="${esEntrada ? 'movimiento-entrada' : 'movimiento-salida'}">${esEntrada ? '+' : ''}${formatoCantidad(movimiento.cantidad, movimiento.unidad_venta)}</td>
+            <td>${escaparHtml(movimiento.nota || '—')}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function cargarTodo() {
+    try {
+        const respuesta = await fetch(`${API_BASE}/inventario`);
+        if (!respuesta.ok) throw new Error('No se pudo cargar el inventario');
+        productos = await respuesta.json();
+        renderInventario();
+        llenarSelectores();
+        await cargarMovimientos();
+    } catch (error) {
+        document.getElementById('tbody-inventario').innerHTML = `<tr><td colspan="5" class="text-danger">${escaparHtml(error.message)}</td></tr>`;
+    }
+}
+
+function mostrarEstado(id, mensaje, exito) {
+    const elemento = document.getElementById(id);
+    elemento.className = `estado-mensaje mt-2 ${exito ? 'text-success' : 'text-danger'}`;
+    elemento.textContent = mensaje;
+}
+
+function descargarExcel() {
+    const filas = [['Producto', 'Disponible']];
+    productos.forEach(producto => filas.push([
+        producto.nombre,
+        producto.controla_inventario ? formatoCantidad(producto.cantidad_disponible, producto.unidad_venta) : 'No contabiliza'
+    ]));
+    const contenido = '\ufeff' + filas.map(fila => fila.map(valor => `"${String(valor ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const enlace = document.createElement('a');
+    enlace.href = URL.createObjectURL(new Blob([contenido], { type: 'text/csv;charset=utf-8' }));
+    enlace.download = `inventario-${new Date().toISOString().slice(0, 10)}.csv`;
+    enlace.click();
+    URL.revokeObjectURL(enlace.href);
+}
+
+document.getElementById('conversion-resultado').addEventListener('change', evento => {
+    const producto = productoSeleccionado(evento.target.value);
+    document.getElementById('conversion-cantidad-wrap').classList.toggle('d-none', !producto || !producto.controla_inventario);
+});
+
+document.getElementById('form-entrada').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const producto = productoSeleccionado(document.getElementById('entrada-producto').value);
+    try {
+        const respuesta = await fetch(`${API_BASE}/inventario/entradas`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ producto_id: producto.id, cantidad: Number(document.getElementById('entrada-cantidad').value), nota: document.getElementById('entrada-nota').value })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo registrar la entrada');
+        evento.target.reset();
+        mostrarEstado('entrada-estado', 'Entrada registrada correctamente.', true);
+        await cargarTodo();
+    } catch (error) { mostrarEstado('entrada-estado', error.message, false); }
+});
+
+document.getElementById('form-conversion').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    try {
+        const respuesta = await fetch(`${API_BASE}/inventario/conversiones`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                producto_origen_id: Number(document.getElementById('conversion-origen').value),
+                cantidad_origen: Number(document.getElementById('conversion-cantidad').value),
+                producto_resultado_id: Number(document.getElementById('conversion-resultado').value) || null,
+                cantidad_resultado: Number(document.getElementById('conversion-cantidad-resultado').value) || null,
+                nota: document.getElementById('conversion-nota').value
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo registrar la conversión');
+        evento.target.reset();
+        document.getElementById('conversion-cantidad-wrap').classList.add('d-none');
+        mostrarEstado('conversion-estado', 'Conversión registrada correctamente.', true);
+        await cargarTodo();
+    } catch (error) { mostrarEstado('conversion-estado', error.message, false); }
+});
+
+document.getElementById('btn-recargar').addEventListener('click', cargarTodo);
+document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
+document.getElementById('btn-excel').addEventListener('click', descargarExcel);
+document.getElementById('btn-foto').addEventListener('click', () => document.body.classList.add('modo-foto'));
+document.getElementById('btn-salir-foto').addEventListener('click', () => document.body.classList.remove('modo-foto'));
+cargarTodo();
+</script>
+</body>
+</html>

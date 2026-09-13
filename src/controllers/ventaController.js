@@ -2,7 +2,7 @@ const ventaModel = require('../models/ventaModel');
 
 function crear(req, res) {
     try {
-        const nuevaVenta = ventaModel.crear(req.body);
+        const nuevaVenta = ventaModel.crear({ ...req.body, usuario_id: req.usuario.id });
         res.status(201).json(nuevaVenta);
     } catch (error) {
         res.status(400).json({ error: error.message });
@@ -22,4 +22,13 @@ function obtenerUno(req, res) {
     res.json(venta);
 }
 
-module.exports = { crear, listar, obtenerUno };
+function cancelar(req, res) {
+    try {
+        const venta = ventaModel.cancelar(req.params.id, req.body.motivo);
+        res.json(venta);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+}
+
+module.exports = { crear, listar, obtenerUno, cancelar };

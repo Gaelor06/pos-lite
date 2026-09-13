@@ -10,7 +10,14 @@
     .ventas-layout { min-height: calc(100vh - 58px); }
     .panel-ventas { height: 100%; }
     .busqueda-ventas { max-width: 24rem; }
-    .productos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: .75rem; }
+    .productos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+        gap: .75rem;
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+        padding-right: .25rem;
+    }
     .producto-boton { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: .85rem; text-align: left; color: var(--ink); min-height: 108px; transition: border-color .15s ease, transform .15s ease; }
     .producto-boton:hover { border-color: var(--accent); transform: translateY(-1px); }
     .producto-boton:disabled { opacity: .55; cursor: not-allowed; }
@@ -18,20 +25,43 @@
     .producto-meta { display: block; color: var(--ink-soft); font-size: .78rem; margin-top: .45rem; }
     .carrito-linea { border-bottom: 1px solid var(--border); padding: .75rem 0; }
     .carrito-linea:last-child { border-bottom: 0; }
-    .cantidad-control { width: 6rem; }
+    .cantidad-control { width: 5.5rem; }
+    .precio-control { width: 6.5rem; }
     .total-venta { font-size: 1.7rem; font-weight: 700; color: var(--accent); }
     .resumen-venta { border-top: 1px solid var(--border); padding-top: 1rem; }
+    .carrito-panel {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 120px);
+    }
     .cobro-destacado { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
     .cobro-destacado .form-label { font-weight: 600; color: var(--ink); }
     .monto-recibido { font-size: 1.35rem; font-weight: 600; height: 3.25rem; }
     .vuelto-valor { color: var(--accent); font-size: 1.45rem; }
     .total-destacado { background: var(--ink); color: #fff; border-radius: 8px; padding: 1rem 1.15rem; }
     .total-destacado .total-venta { color: #fff; font-size: 2.1rem; }
-    .carrito-contenido { max-height: 33vh; overflow-y: auto; }
+    .carrito-contenido {
+        max-height: 33vh;
+        min-height: 10rem;
+        overflow-y: auto;
+        flex: 1 1 auto;
+    }
     .seccion-titulo { font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
     .cliente-opcional { background: rgba(255, 255, 255, .55); border: 1px solid var(--border); border-radius: 6px; padding: .75rem; }
     .estado-ventas { min-height: 1.4rem; font-size: .85rem; }
-    @media (min-width: 992px) { .carrito-panel { position: sticky; top: 1rem; } }
+    .motivo-linea-wrap { margin-top: .5rem; }
+    .badge-completada { background: var(--accent-soft); color: var(--accent); font-size: .72rem; padding: .25em .55em; border-radius: 5px; }
+    .badge-cancelada { background: #F1E7E6; color: var(--danger); font-size: .72rem; padding: .25em .55em; border-radius: 5px; }
+    .fila-venta { font-size: .88rem; }
+    @media (min-width: 992px) {
+        .carrito-panel {
+            position: sticky;
+            top: 1rem;
+        }
+    }
+    @media (max-width: 991px) {
+        .productos-grid { max-height: 42vh; }
+    }
 </style>
 </head>
 <body data-pagina="ventas">
@@ -40,7 +70,7 @@
 <main class="container-fluid py-4">
     <div class="row g-4 ventas-layout">
         <section class="col-12 col-lg-7">
-            <div class="panel panel-ventas">
+            <div class="panel panel-ventas mb-3">
                 <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-3">
                     <div>
                         <h2 class="mb-1">Venta actual</h2>
@@ -50,6 +80,22 @@
                 </div>
                 <div class="productos-grid" id="productos-grid"></div>
                 <div class="vacio d-none" id="productos-vacios">No hay productos activos que coincidan con la búsqueda.</div>
+            </div>
+
+            <div class="panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Ventas recientes</h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-recargar-ventas" type="button">Recargar</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table fila-venta">
+                        <thead>
+                            <tr><th>#</th><th>Hora</th><th>Cliente</th><th>Total</th><th>Estado</th><th></th></tr>
+                        </thead>
+                        <tbody id="tbody-ventas"></tbody>
+                    </table>
+                    <div class="vacio d-none" id="ventas-vacias">Aún no hay ventas registradas.</div>
+                </div>
             </div>
         </section>
 
@@ -104,6 +150,21 @@
                         <option value="sinpe">SINPE móvil</option>
                         <option value="tarjeta">Tarjeta</option>
                     </select>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="pago-dividido">
+                        <label class="form-check-label" for="pago-dividido">Dividir pago</label>
+                    </div>
+                    <div class="cliente-opcional d-none mb-3" id="pago-secundario-box">
+                        <label class="form-label" for="metodo-pago-secundario">Segundo método</label>
+                        <select class="form-select mb-2" id="metodo-pago-secundario">
+                            <option value="sinpe">SINPE móvil</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="efectivo">Efectivo</option>
+                        </select>
+                        <label class="form-label" for="monto-pago-secundario">Monto del segundo método</label>
+                        <input class="form-control" id="monto-pago-secundario" type="number" min="1" step="1" placeholder="₡0">
+                        <div class="form-text">El resto del total se asigna al método principal.</div>
+                    </div>
                     <div id="efectivo-box">
                         <label class="form-label" for="monto-recibido">Monto recibido</label>
                         <input class="form-control monto-recibido" id="monto-recibido" type="number" min="0" step="50" placeholder="₡0">
@@ -129,9 +190,14 @@ const buscarProducto = document.getElementById('buscar-producto');
 const metodoPago = document.getElementById('metodo-pago');
 const montoRecibido = document.getElementById('monto-recibido');
 const cobrar = document.getElementById('cobrar');
+const pagoDividido = document.getElementById('pago-dividido');
+const pagoSecundarioBox = document.getElementById('pago-secundario-box');
+const metodoPagoSecundario = document.getElementById('metodo-pago-secundario');
+const montoPagoSecundario = document.getElementById('monto-pago-secundario');
 const carrito = new Map();
 let productos = [];
 let clientes = [];
+let preciosEspecialesMap = new Map();
 const clienteOpcional = document.getElementById('cliente-opcional');
 
 function colones(valor) {
@@ -139,11 +205,18 @@ function colones(valor) {
 }
 
 function escaparHtml(valor) {
-    return String(valor).replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+    return String(valor == null ? '' : valor).replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
 }
 
-function cantidadBase(cantidad, producto) {
-    return producto.unidad_venta === 'kg' ? Math.round(cantidad * 1000) : Math.round(cantidad);
+// --- Cálculos del carrito centralizados aquí, para no repetir la fórmula en 3 lugares ---
+function subtotalLinea(linea) {
+    return Math.round(linea.cantidad * linea.precioAplicado);
+}
+
+function calcularTotales() {
+    const subtotal = [...carrito.values()].reduce((suma, linea) => suma + subtotalLinea(linea), 0);
+    const total = Math.round(subtotal / 50) * 50;
+    return { subtotal, total };
 }
 
 function renderProductos() {
@@ -163,36 +236,42 @@ function renderCarrito() {
         carritoLista.innerHTML = '<div class="vacio">Agrega productos para comenzar la venta.</div>';
         cobrar.disabled = true;
     } else {
-        carritoLista.innerHTML = [...carrito.values()].map(linea => `
+        carritoLista.innerHTML = [...carrito.values()].map(linea => {
+            const tienePrecioEspecial = linea.precioAplicado !== linea.producto.precio_venta;
+            return `
             <div class="carrito-linea" data-linea-id="${linea.producto.id}">
                 <div class="d-flex justify-content-between gap-2">
                     <div>
                         <strong>${escaparHtml(linea.producto.nombre)}</strong>
-                        <div class="small text-muted">${colones(linea.producto.precio_venta)} / ${linea.producto.unidad_venta}</div>
+                        <div class="small text-muted">Precio normal: ${colones(linea.producto.precio_venta)} / ${linea.producto.unidad_venta}</div>
                     </div>
                     <button class="btn btn-sm btn-outline-danger quitar-linea" type="button" aria-label="Quitar producto">Quitar</button>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <input class="form-control form-control-sm cantidad-control cantidad-linea" type="text" inputmode="decimal" min="${linea.producto.unidad_venta === 'kg' ? '0.5' : '1'}" step="${linea.producto.unidad_venta === 'kg' ? '0.5' : '1'}" value="${linea.cantidad}">
-                    <strong class="linea-subtotal">${colones(Math.round(linea.cantidad * linea.producto.precio_venta))}</strong>
+                <div class="d-flex justify-content-between align-items-center gap-2 mt-2 flex-wrap">
+                    <div>
+                        <label class="form-label small mb-0">Cantidad</label><br>
+                        <input class="form-control form-control-sm cantidad-control cantidad-linea" type="text" inputmode="decimal" value="${linea.cantidad}">
+                    </div>
+                    <div>
+                        <label class="form-label small mb-0">Precio (₡)</label><br>
+                        <input class="form-control form-control-sm precio-control precio-linea" type="number" min="0" value="${linea.precioAplicado}">
+                    </div>
+                    <strong class="linea-subtotal">${colones(subtotalLinea(linea))}</strong>
+                </div>
+                <div class="motivo-linea-wrap ${tienePrecioEspecial ? '' : 'd-none'}">
+                    <label class="form-label small mb-0">Motivo del precio especial</label>
+                    <input class="form-control form-control-sm motivo-linea" type="text" placeholder="Ej. cliente frecuente, compra por cantidad..." value="${escaparHtml(linea.motivo)}">
                 </div>
             </div>
-        `).join('');
+        `; }).join('');
         cobrar.disabled = false;
     }
 
-    const subtotal = [...carrito.values()].reduce((total, linea) => total + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
-    const total = Math.round(subtotal / 50) * 50;
-    document.getElementById('subtotal').textContent = colones(subtotal);
-    document.getElementById('redondeo').textContent = colones(total - subtotal);
-    document.getElementById('total').textContent = colones(total);
-    document.getElementById('total-secundario').textContent = colones(total);
-    actualizarVuelto();
+    actualizarResumen();
 }
 
 function actualizarResumen() {
-    const subtotal = [...carrito.values()].reduce((total, linea) => total + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
-    const total = Math.round(subtotal / 50) * 50;
+    const { subtotal, total } = calcularTotales();
     document.getElementById('subtotal').textContent = colones(subtotal);
     document.getElementById('redondeo').textContent = colones(total - subtotal);
     document.getElementById('total').textContent = colones(total);
@@ -201,10 +280,27 @@ function actualizarResumen() {
 }
 
 function actualizarVuelto() {
-    const total = [...carrito.values()].reduce((suma, linea) => suma + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
-    const totalRedondeado = Math.round(total / 50) * 50;
+    const { total } = calcularTotales();
     const recibido = Number(montoRecibido.value) || 0;
-    document.getElementById('vuelto').textContent = colones(Math.max(0, recibido - totalRedondeado));
+    const pagos = calcularPagos(total);
+    const efectivo = pagos.filter(pago => pago.metodo_pago === 'efectivo').reduce((suma, pago) => suma + pago.monto, 0);
+    document.getElementById('vuelto').textContent = colones(Math.max(0, recibido - efectivo));
+}
+
+function calcularPagos(total) {
+    if (!pagoDividido.checked) return [{ metodo_pago: metodoPago.value, monto: total }];
+    const segundoMonto = Number(montoPagoSecundario.value) || 0;
+    return [
+        { metodo_pago: metodoPago.value, monto: total - segundoMonto },
+        { metodo_pago: metodoPagoSecundario.value, monto: segundoMonto }
+    ];
+}
+
+function actualizarVisibilidadEfectivo() {
+    const hayEfectivo = metodoPago.value === 'efectivo' || (pagoDividido.checked && metodoPagoSecundario.value === 'efectivo');
+    document.getElementById('efectivo-box').classList.toggle('d-none', !hayEfectivo);
+    if (!hayEfectivo) montoRecibido.value = '';
+    actualizarVuelto();
 }
 
 function agregarProducto(id) {
@@ -212,7 +308,18 @@ function agregarProducto(id) {
     if (!producto) return;
     const linea = carrito.get(id);
     const incremento = producto.unidad_venta === 'kg' ? 0.5 : 1;
-    carrito.set(id, { producto, cantidad: linea ? linea.cantidad + incremento : incremento });
+    if (linea) {
+        linea.cantidad += incremento;
+    } else {
+        const precioEspecial = preciosEspecialesMap.get(String(producto.id));
+        carrito.set(id, {
+            producto,
+            cantidad: incremento,
+            precioAplicado: precioEspecial !== undefined ? Number(precioEspecial) : producto.precio_venta,
+            motivo: precioEspecial !== undefined ? 'Precio especial cliente' : ''
+        });
+    }
+    sincronizarPreciosEspecialesCliente();
     renderCarrito();
 }
 
@@ -220,7 +327,7 @@ async function cargarProductos() {
     try {
         const respuesta = await fetch(`${API_BASE}/productos`);
         if (!respuesta.ok) throw new Error('No se pudieron cargar los productos');
-        productos = await respuesta.json();
+        productos = (await respuesta.json()).filter(p => p.activo);
         document.getElementById('estado-productos').textContent = `${productos.length} producto(s) disponible(s)`;
         productosVacios.classList.remove('text-danger');
         renderProductos();
@@ -238,9 +345,116 @@ async function cargarClientes() {
         if (!respuesta.ok) throw new Error('No se pudieron cargar los clientes');
         clientes = await respuesta.json();
         document.getElementById('cliente').innerHTML = '<option value="">No seleccionar cliente guardado</option>' + clientes.map(cliente => `<option value="${cliente.id}">${escaparHtml(cliente.nombre)}</option>`).join('');
+        const clienteSeleccionado = Number(document.getElementById('cliente').value) || null;
+        await cargarPreciosEspecialesCliente(clienteSeleccionado);
     } catch (error) {
         document.getElementById('estado-cobro').textContent = error.message;
         document.getElementById('estado-cobro').className = 'estado-ventas mt-2 text-danger';
+    }
+}
+
+async function cargarPreciosEspecialesCliente(clienteId) {
+    preciosEspecialesMap.clear();
+    if (!clienteId) {
+        sincronizarPreciosEspecialesCliente();
+        renderCarrito();
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/clientes/${clienteId}/precios`);
+        if (!respuesta.ok) throw new Error('No se pudieron cargar los precios especiales del cliente');
+        const precios = await respuesta.json();
+        precios.forEach(item => preciosEspecialesMap.set(String(item.producto_id), Number(item.precio_especial)));
+        sincronizarPreciosEspecialesCliente();
+        renderCarrito();
+    } catch (error) {
+        document.getElementById('estado-cobro').textContent = error.message;
+        document.getElementById('estado-cobro').className = 'estado-ventas mt-2 text-danger';
+    }
+}
+
+function sincronizarPreciosEspecialesCliente() {
+    const clienteId = Number(document.getElementById('cliente').value) || null;
+    if (!clienteId) {
+        for (const linea of carrito.values()) {
+            if (linea.motivo === 'Precio especial cliente') {
+                linea.precioAplicado = linea.producto.precio_venta;
+                linea.motivo = '';
+            }
+        }
+        return;
+    }
+
+    for (const linea of carrito.values()) {
+        const precioEspecial = preciosEspecialesMap.get(String(linea.producto.id));
+        if (precioEspecial !== undefined) {
+            linea.precioAplicado = Number(precioEspecial);
+            linea.motivo = 'Precio especial cliente';
+        } else {
+            linea.precioAplicado = linea.producto.precio_venta;
+            linea.motivo = '';
+        }
+    }
+}
+
+async function cargarVentas() {
+    const tbody = document.getElementById('tbody-ventas');
+    const vacio = document.getElementById('ventas-vacias');
+    try {
+        const respuesta = await fetch(`${API_BASE}/ventas`);
+        if (!respuesta.ok) throw new Error('No se pudieron cargar las ventas');
+        const ventas = await respuesta.json();
+
+        if (ventas.length === 0) {
+            tbody.innerHTML = '';
+            vacio.classList.remove('d-none');
+            return;
+        }
+        vacio.classList.add('d-none');
+
+        tbody.innerHTML = ventas.map(venta => {
+            const nombreMostrado = venta.comprador_nombre || venta.cliente_nombre || '—';
+            const badge = venta.estado === 'cancelada'
+                ? '<span class="badge-cancelada">Cancelada</span>'
+                : '<span class="badge-completada">Completada</span>';
+            const boton = venta.estado === 'completada'
+                ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelarVenta(${venta.id})">Cancelar</button>`
+                : '';
+            const hora = venta.fecha_hora ? venta.fecha_hora.split(' ')[1] || venta.fecha_hora : '';
+            return `<tr>
+                <td>#${venta.id}</td>
+                <td>${hora}</td>
+                <td>${escaparHtml(nombreMostrado)}</td>
+                <td>${colones(venta.total_cobrado)}</td>
+                <td>${badge}</td>
+                <td>${boton}</td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-danger">${escaparHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function cancelarVenta(id) {
+    const motivo = window.prompt('Motivo de la cancelación (obligatorio):');
+    if (motivo === null) return; // el usuario le dio "Cancelar" al prompt, no seguimos
+    if (!motivo.trim()) {
+        alert('El motivo es obligatorio para cancelar una venta.');
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/ventas/${id}/cancelar`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ motivo })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo cancelar la venta');
+        cargarVentas();
+    } catch (error) {
+        alert(error.message);
     }
 }
 
@@ -249,7 +463,13 @@ document.getElementById('venta-con-nombre').addEventListener('change', evento =>
     if (!evento.target.checked) {
         document.getElementById('cliente-nombre').value = '';
         document.getElementById('cliente').value = '';
+        cargarPreciosEspecialesCliente(null);
     }
+});
+
+document.getElementById('cliente').addEventListener('change', async evento => {
+    const clienteId = Number(evento.target.value) || null;
+    await cargarPreciosEspecialesCliente(clienteId);
 });
 
 productosGrid.addEventListener('click', evento => {
@@ -258,14 +478,32 @@ productosGrid.addEventListener('click', evento => {
 });
 
 carritoLista.addEventListener('input', evento => {
-    if (!evento.target.classList.contains('cantidad-linea')) return;
-    const id = Number(evento.target.closest('[data-linea-id]').dataset.lineaId);
+    const contenedorLinea = evento.target.closest('[data-linea-id]');
+    if (!contenedorLinea) return;
+    const id = Number(contenedorLinea.dataset.lineaId);
     const linea = carrito.get(id);
-    const cantidad = Number(evento.target.value.replace(',', '.'));
-    if (!linea || !Number.isFinite(cantidad) || cantidad <= 0) return;
-    linea.cantidad = cantidad;
-    evento.target.closest('[data-linea-id]').querySelector('.linea-subtotal').textContent = colones(Math.round(cantidad * linea.producto.precio_venta));
-    actualizarResumen();
+    if (!linea) return;
+
+    if (evento.target.classList.contains('cantidad-linea')) {
+        const cantidad = Number(evento.target.value.replace(',', '.'));
+        if (!Number.isFinite(cantidad) || cantidad <= 0) return;
+        linea.cantidad = cantidad;
+        contenedorLinea.querySelector('.linea-subtotal').textContent = colones(subtotalLinea(linea));
+        actualizarResumen();
+    }
+
+    if (evento.target.classList.contains('precio-linea')) {
+        const precio = Number(evento.target.value);
+        if (!Number.isFinite(precio) || precio < 0) return;
+        linea.precioAplicado = precio;
+        contenedorLinea.querySelector('.motivo-linea-wrap').classList.toggle('d-none', precio === linea.producto.precio_venta);
+        contenedorLinea.querySelector('.linea-subtotal').textContent = colones(subtotalLinea(linea));
+        actualizarResumen();
+    }
+
+    if (evento.target.classList.contains('motivo-linea')) {
+        linea.motivo = evento.target.value;
+    }
 });
 
 carritoLista.addEventListener('click', evento => {
@@ -276,36 +514,83 @@ carritoLista.addEventListener('click', evento => {
 
 buscarProducto.addEventListener('input', renderProductos);
 montoRecibido.addEventListener('input', actualizarVuelto);
+montoPagoSecundario.addEventListener('input', actualizarVuelto);
+metodoPagoSecundario.addEventListener('change', actualizarVisibilidadEfectivo);
+pagoDividido.addEventListener('change', () => {
+    pagoSecundarioBox.classList.toggle('d-none', !pagoDividido.checked);
+    actualizarVisibilidadEfectivo();
+});
 document.getElementById('vaciar-carrito').addEventListener('click', () => { carrito.clear(); renderCarrito(); });
+document.getElementById('btn-recargar-ventas').addEventListener('click', cargarVentas);
 metodoPago.addEventListener('change', () => {
-    const esEfectivo = metodoPago.value === 'efectivo';
-    document.getElementById('efectivo-box').classList.toggle('d-none', !esEfectivo);
-    if (!esEfectivo) montoRecibido.value = '';
-    actualizarVuelto();
+    actualizarVisibilidadEfectivo();
 });
 
 document.getElementById('form-cobro').addEventListener('submit', async evento => {
     evento.preventDefault();
     const estado = document.getElementById('estado-cobro');
-    const subtotal = [...carrito.values()].reduce((suma, linea) => suma + Math.round(linea.cantidad * linea.producto.precio_venta), 0);
-    const total = Math.round(subtotal / 50) * 50;
+
+    // Validación: si el precio de una línea es distinto al normal, el motivo es obligatorio
+    // (mismo requisito que ya exige la base de datos — esto solo evita el viaje al servidor)
+    for (const linea of carrito.values()) {
+        if (linea.precioAplicado !== linea.producto.precio_venta && !linea.motivo.trim()) {
+            estado.className = 'estado-ventas mt-2 text-danger';
+            estado.textContent = `Falta el motivo del precio especial de "${linea.producto.nombre}".`;
+            return;
+        }
+        if (linea.producto.unidad_venta === 'unidad' && !Number.isInteger(linea.cantidad)) {
+            estado.className = 'estado-ventas mt-2 text-danger';
+            estado.textContent = `La cantidad de "${linea.producto.nombre}" debe ser un número entero.`;
+            return;
+        }
+    }
+
+    const { total } = calcularTotales();
+    const pagos = calcularPagos(total);
     const recibido = Number(montoRecibido.value) || 0;
-    if (metodoPago.value === 'efectivo' && recibido < total) {
+    const efectivo = pagos.filter(pago => pago.metodo_pago === 'efectivo').reduce((suma, pago) => suma + pago.monto, 0);
+    if (pagos.some(pago => !Number.isInteger(pago.monto) || pago.monto <= 0) || pagos[0].monto <= 0) {
         estado.className = 'estado-ventas mt-2 text-danger';
-        estado.textContent = 'El monto recibido es menor que el total.';
+        estado.textContent = 'Revisa los montos de los pagos divididos.';
         return;
     }
+    if (efectivo > 0 && recibido < efectivo) {
+        estado.className = 'estado-ventas mt-2 text-danger';
+        estado.textContent = 'El monto recibido es menor que el efectivo que debe pagar el cliente.';
+        return;
+    }
+
     estado.className = 'estado-ventas mt-2 text-muted';
     estado.textContent = 'Preparando venta...';
     cobrar.disabled = true;
+
     try {
         const respuesta = await fetch(`${API_BASE}/ventas`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario_id: 1, cliente_id: Number(document.getElementById('cliente').value) || null, comprador_nombre: document.getElementById('cliente-nombre').value.trim() || null, metodo_pago: metodoPago.value, productos: [...carrito.values()].map(linea => ({ producto_id: linea.producto.id, cantidad: linea.cantidad, precio_aplicado: linea.producto.precio_venta })) })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cliente_id: Number(document.getElementById('cliente').value) || null,
+                comprador_nombre: document.getElementById('cliente-nombre').value.trim() || null,
+                metodo_pago: metodoPago.value,
+                pagos,
+                productos: [...carrito.values()].map(linea => ({
+                    producto_id: linea.producto.id,
+                    cantidad: linea.cantidad,
+                    precio_aplicado: linea.precioAplicado,
+                    motivo_precio_especial: linea.motivo.trim() || null
+                }))
+            })
         });
         const datos = await respuesta.json();
         if (!respuesta.ok) throw new Error(datos.error || 'No se pudo registrar la venta');
-        carrito.clear(); montoRecibido.value = ''; estado.className = 'estado-ventas mt-2 text-success'; estado.textContent = `Venta #${datos.id || datos} registrada.`; renderCarrito();
+
+        carrito.clear();
+        montoRecibido.value = '';
+        estado.className = 'estado-ventas mt-2 text-success';
+        estado.textContent = `Venta #${datos.id} registrada.`;
+        renderCarrito();
+        cargarProductos();
+        cargarVentas();
         setTimeout(() => { if (estado.classList.contains('text-success')) estado.textContent = ''; }, 4000);
     } catch (error) {
         estado.className = 'estado-ventas mt-2 text-danger';
@@ -314,14 +599,9 @@ document.getElementById('form-cobro').addEventListener('submit', async evento =>
     }
 });
 
-function mostrarEstadoCobro(mensaje, clase) {
-    const estado = document.getElementById('estado-cobro');
-    estado.className = `estado-ventas mt-2 ${clase}`;
-    estado.textContent = mensaje;
-}
-
 cargarProductos();
 cargarClientes();
+cargarVentas();
 </script>
 </body>
 </html>

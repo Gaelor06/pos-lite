@@ -121,10 +121,42 @@
                 <input type="hidden" id="mp-id">
                 <label class="form-label">Nuevo precio (₡)</label>
                 <input type="number" class="form-control" id="mp-precio" min="0">
+                <label class="form-label mt-2" for="mp-motivo">Motivo del cambio</label>
+                <input type="text" class="form-control" id="mp-motivo" maxlength="200" placeholder="Ej. cambio del proveedor" required>
+                <div class="estado-mensaje mt-2" id="mp-estado"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-accent w-100" id="mp-guardar">Guardar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarProducto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="form-editar-producto">
+                <div class="modal-body">
+                    <input type="hidden" id="ep-id">
+                    <label class="form-label" for="ep-nombre">Nombre</label>
+                    <input type="text" class="form-control mb-2" id="ep-nombre" required maxlength="120">
+                    <label class="form-label" for="ep-categoria">Categoría</label>
+                    <select class="form-select mb-2" id="ep-categoria" required></select>
+                    <label class="form-label" for="ep-costo">Precio de costo (₡)</label>
+                    <input type="number" class="form-control mb-2" id="ep-costo" min="0" step="1" required>
+                    <label class="form-label" for="ep-stock-minimo">Stock mínimo</label>
+                    <input type="number" class="form-control" id="ep-stock-minimo" min="0" step="1" required>
+                    <div class="form-text mt-2">La unidad de venta no se puede cambiar después de registrar movimientos.</div>
+                    <div class="estado-mensaje mt-2" id="ep-estado"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-accent w-100" type="submit">Guardar cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -135,6 +167,7 @@
 const API_BASE = '/api';
 
 let CATEGORIAS = [];
+let productosCargados = [];
 
 async function cargarCategoriasEnSelect() {
     const select = document.getElementById('c-categoria');
@@ -171,6 +204,7 @@ async function cargarProductos() {
     try {
         const respuesta = await fetch(`${API_BASE}/productos`);
         const productos = await respuesta.json();
+        productosCargados = productos;
 
         if (productos.length === 0) {
             tbody.innerHTML = '';
@@ -194,6 +228,12 @@ async function cargarProductos() {
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-secondary" onclick="abrirModalPrecio(${p.id}, ${p.precio_venta})">
                         Precio
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="verHistorialPrecios(${p.id}, '${String(p.nombre).replace(/'/g, '&#039;')}')">
+                        Historial
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="abrirModalEditar(${p.id})">
+                        Editar
                     </button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="alternarActivo(${p.id}, ${p.activo})">
                         ${p.activo ? 'Desactivar' : 'Activar'}
@@ -254,26 +294,102 @@ document.getElementById('btn-recargar').addEventListener('click', () => {
 });
 
 const modalPrecio = new bootstrap.Modal(document.getElementById('modalPrecio'));
+const modalEditarProducto = new bootstrap.Modal(document.getElementById('modalEditarProducto'));
+
+function abrirModalEditar(id) {
+    const producto = productosCargados.find(item => item.id === Number(id));
+    if (!producto) return;
+
+    document.getElementById('ep-id').value = producto.id;
+    document.getElementById('ep-nombre').value = producto.nombre;
+    document.getElementById('ep-categoria').innerHTML = CATEGORIAS
+        .map(categoria => `<option value="${categoria.id}">${categoria.nombre}</option>`)
+        .join('');
+    document.getElementById('ep-categoria').value = producto.categoria_id;
+    document.getElementById('ep-costo').value = producto.precio_costo;
+    document.getElementById('ep-stock-minimo').value = producto.stock_minimo;
+    document.getElementById('ep-estado').textContent = '';
+    modalEditarProducto.show();
+}
+
+document.getElementById('form-editar-producto').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const estado = document.getElementById('ep-estado');
+    estado.className = 'estado-mensaje mt-2 text-muted';
+    estado.textContent = 'Guardando...';
+
+    try {
+        const id = document.getElementById('ep-id').value;
+        const respuesta = await fetch(`${API_BASE}/productos/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nombre: document.getElementById('ep-nombre').value.trim(),
+                categoria_id: Number(document.getElementById('ep-categoria').value),
+                precio_costo: Number(document.getElementById('ep-costo').value),
+                stock_minimo: Number(document.getElementById('ep-stock-minimo').value)
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo actualizar el producto');
+        modalEditarProducto.hide();
+        cargarProductos();
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = error.message;
+    }
+});
 
 function abrirModalPrecio(id, precioActual) {
     document.getElementById('mp-id').value = id;
     document.getElementById('mp-precio').value = precioActual;
+    document.getElementById('mp-motivo').value = '';
+    document.getElementById('mp-estado').textContent = '';
     modalPrecio.show();
 }
 
 document.getElementById('mp-guardar').addEventListener('click', async () => {
     const id = document.getElementById('mp-id').value;
     const nuevoPrecio = Number(document.getElementById('mp-precio').value);
+    const motivo = document.getElementById('mp-motivo').value.trim();
+    const estado = document.getElementById('mp-estado');
+    if (!motivo) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = 'Indica el motivo del cambio.';
+        return;
+    }
 
-    await fetch(`${API_BASE}/productos/${id}/precio`, {
+    const respuesta = await fetch(`${API_BASE}/productos/${id}/precio`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ precio_venta: nuevoPrecio })
+        body: JSON.stringify({ precio_venta: nuevoPrecio, motivo })
     });
+    const datos = await respuesta.json();
+    if (!respuesta.ok) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = datos.error || 'No se pudo cambiar el precio.';
+        return;
+    }
 
     modalPrecio.hide();
     cargarProductos();
 });
+
+async function verHistorialPrecios(id, nombre) {
+    try {
+        const respuesta = await fetch(`${API_BASE}/productos/${id}/historial-precios`);
+        if (!respuesta.ok) throw new Error('No se pudo cargar el historial');
+        const historial = await respuesta.json();
+        if (historial.length === 0) {
+            alert(`No hay cambios de precio registrados para ${nombre}.`);
+            return;
+        }
+        const texto = historial.map(item => `${item.creado_en} | ₡${item.precio_anterior.toLocaleString('es-CR')} → ₡${item.precio_nuevo.toLocaleString('es-CR')} | ${item.motivo} | ${item.usuario_nombre}`).join('\n');
+        alert(`Historial de precios: ${nombre}\n\n${texto}`);
+    } catch (error) {
+        alert(error.message);
+    }
+}
 
 async function alternarActivo(id, estadoActual) {
     await fetch(`${API_BASE}/productos/${id}/activo`, {

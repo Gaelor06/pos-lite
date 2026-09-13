@@ -6,6 +6,7 @@ router.get('/', productoController.listar);
 router.get('/:id', productoController.obtenerUno);
 router.post('/', productoController.crear);
 router.put('/:id', productoController.actualizarGeneral);
+router.get('/:id/historial-precios', productoController.historialPrecios);
 router.patch('/:id/precio', productoController.actualizarPrecio);
 router.patch('/:id/activo', productoController.cambiarEstadoActivo);
 router.patch('/:id/unidad-venta', productoController.cambiarUnidadVenta);

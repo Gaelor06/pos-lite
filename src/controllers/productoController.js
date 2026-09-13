@@ -15,39 +15,49 @@ function obtenerUno(req, res) {
 }
 
 function crear(req, res) {
-    const nuevoProducto = productoModel.crear(req.body);
-    res.status(201).json(nuevoProducto);
+    try {
+        res.status(201).json(productoModel.crear(req.body));
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 }
 
 function actualizarGeneral(req, res) {
     // req.params.id viene de la URL (ej. /api/productos/5 -> "5")
     // req.body trae los campos nuevos: { nombre, categoria_id, precio_costo, stock_minimo }
-    const actualizado = productoModel.actualizarGeneral(req.params.id, req.body);
-
-    if (!actualizado) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
+    try {
+        const actualizado = productoModel.actualizarGeneral(req.params.id, req.body);
+        if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
+        res.json({ mensaje: 'Producto actualizado' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
-    res.json({ mensaje: 'Producto actualizado' });
 }
 
 function actualizarPrecio(req, res) {
     // Esperamos: { "precio_venta": 4500 }
-    const actualizado = productoModel.actualizarPrecio(req.params.id, req.body.precio_venta);
-
-    if (!actualizado) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
+    try {
+        const actualizado = productoModel.actualizarPrecio(req.params.id, req.body.precio_venta, req.body.motivo, req.usuario.id);
+        if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
+        res.json({ mensaje: 'Precio actualizado' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
-    res.json({ mensaje: 'Precio actualizado' });
+}
+
+function historialPrecios(req, res) {
+    res.json(productoModel.obtenerHistorialPrecios(req.params.id));
 }
 
 function cambiarEstadoActivo(req, res) {
     // Esperamos: { "activo": true }  o  { "activo": false }
-    const actualizado = productoModel.cambiarEstadoActivo(req.params.id, req.body.activo);
-
-    if (!actualizado) {
-        return res.status(404).json({ error: 'Producto no encontrado' });
+    try {
+        const actualizado = productoModel.cambiarEstadoActivo(req.params.id, req.body.activo);
+        if (!actualizado) return res.status(404).json({ error: 'Producto no encontrado' });
+        res.json({ mensaje: 'Estado actualizado' });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
-    res.json({ mensaje: 'Estado actualizado' });
 }
 
 function cambiarUnidadVenta(req, res) {
@@ -73,6 +83,7 @@ module.exports = {
     crear,
     actualizarGeneral,
     actualizarPrecio,
+    historialPrecios,
     cambiarEstadoActivo,
     cambiarUnidadVenta
 };

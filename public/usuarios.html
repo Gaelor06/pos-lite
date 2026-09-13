@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Usuarios</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    .tabla-usuarios { font-size: .9rem; }
+    .tabla-usuarios th { color: var(--ink-soft); font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
+</style>
+</head>
+<body data-pagina="usuarios">
+<div id="app-nav"></div>
+<main class="container-fluid py-4">
+    <div class="row g-4">
+        <div class="col-12 col-lg-4">
+            <div class="panel">
+                <h2 id="titulo-form">Nuevo usuario</h2>
+                <form id="form-usuario">
+                    <input type="hidden" id="u-id">
+                    <label class="form-label" for="u-nombre">Nombre visible</label>
+                    <input class="form-control mb-2" id="u-nombre" maxlength="100" required>
+                    <label class="form-label" for="u-rol">Rol</label>
+                    <select class="form-select mb-2" id="u-rol">
+                        <option value="empleado">Empleado</option>
+                        <option value="administrador">Administrador</option>
+                    </select>
+                    <label class="form-label" for="u-password">PIN o contraseña</label>
+                    <input class="form-control mb-3" id="u-password" type="password" minlength="4" placeholder="Mínimo 4 caracteres">
+                    <div class="form-text mb-3">Al editar, déjalo vacío para conservar el PIN actual.</div>
+                    <button class="btn btn-accent w-100" type="submit">Guardar usuario</button>
+                    <button class="btn btn-outline-secondary w-100 mt-2 d-none" id="btn-cancelar" type="button">Cancelar edición</button>
+                </form>
+                <div class="estado-mensaje mt-2" id="u-estado"></div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8">
+            <div class="panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Usuarios</h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-recargar" type="button">Recargar</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table tabla-usuarios align-middle">
+                        <thead><tr><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+                        <tbody id="tbody-usuarios"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+const form = document.getElementById('form-usuario');
+let usuarios = [];
+function escaparHtml(valor) { return String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])); }
+function limpiarForm() { form.reset(); document.getElementById('u-id').value = ''; document.getElementById('titulo-form').textContent = 'Nuevo usuario'; document.getElementById('btn-cancelar').classList.add('d-none'); }
+async function cargarUsuarios() {
+    const respuesta = await fetch(`${API_BASE}/usuarios`);
+    if (respuesta.status === 403) { window.location.href = '/'; return; }
+    usuarios = await respuesta.json();
+    document.getElementById('tbody-usuarios').innerHTML = usuarios.map(usuario => `<tr>
+        <td>${escaparHtml(usuario.nombre)}</td>
+        <td>${usuario.rol === 'administrador' ? 'Administrador' : 'Empleado'}</td>
+        <td>${usuario.activo ? 'Activo' : 'Inactivo'}</td>
+        <td class="text-end"><button class="btn btn-sm btn-outline-primary editar" data-id="${usuario.id}" type="button">Editar</button>
+        <button class="btn btn-sm btn-outline-secondary estado" data-id="${usuario.id}" data-activo="${usuario.activo}" type="button">${usuario.activo ? 'Desactivar' : 'Activar'}</button></td>
+    </tr>`).join('');
+}
+document.getElementById('tbody-usuarios').addEventListener('click', async evento => {
+    const boton = evento.target.closest('button'); if (!boton) return;
+    const usuario = usuarios.find(item => item.id === Number(boton.dataset.id)); if (!usuario) return;
+    if (boton.classList.contains('editar')) {
+        document.getElementById('u-id').value = usuario.id; document.getElementById('u-nombre').value = usuario.nombre;
+        document.getElementById('u-rol').value = usuario.rol;
+        document.getElementById('u-password').value = ''; document.getElementById('titulo-form').textContent = 'Editar usuario';
+        document.getElementById('btn-cancelar').classList.remove('d-none'); return;
+    }
+    const respuesta = await fetch(`${API_BASE}/usuarios/${usuario.id}/activo`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activo: !usuario.activo }) });
+    const datos = await respuesta.json(); if (!respuesta.ok) alert(datos.error || 'No se pudo cambiar el estado'); else cargarUsuarios();
+});
+form.addEventListener('submit', async evento => {
+    evento.preventDefault(); const id = document.getElementById('u-id').value;
+    const cuerpo = { nombre: document.getElementById('u-nombre').value, rol: document.getElementById('u-rol').value, password: document.getElementById('u-password').value };
+    const respuesta = await fetch(`${API_BASE}/usuarios${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    const datos = await respuesta.json(); const estado = document.getElementById('u-estado');
+    if (!respuesta.ok) { estado.className = 'estado-mensaje mt-2 text-danger'; estado.textContent = datos.error || 'No se pudo guardar'; return; }
+    estado.className = 'estado-mensaje mt-2 text-success'; estado.textContent = 'Usuario guardado.'; limpiarForm(); cargarUsuarios();
+});
+document.getElementById('btn-cancelar').addEventListener('click', limpiarForm); document.getElementById('btn-recargar').addEventListener('click', cargarUsuarios); cargarUsuarios();
+</script>
+</body>
+</html>

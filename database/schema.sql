@@ -56,6 +56,16 @@ CREATE TABLE productos (
     creado_en           TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE productos_historial_precios (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id         INTEGER NOT NULL REFERENCES productos(id),
+    precio_anterior     INTEGER NOT NULL,
+    precio_nuevo        INTEGER NOT NULL,
+    motivo              TEXT    NOT NULL,
+    usuario_id          INTEGER NOT NULL REFERENCES usuarios(id),
+    creado_en           TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ------------------------------------------------------------
 -- CLIENTES
 -- ------------------------------------------------------------
@@ -214,12 +224,13 @@ CREATE TABLE caja_cierres (
     fecha_hora_apertura     TEXT    NOT NULL DEFAULT (datetime('now')),
     fecha_hora_cierre       TEXT,                -- NULL mientras sigue abierta
     usuario_id              INTEGER NOT NULL REFERENCES usuarios(id),
+    cerrado_por_usuario_id  INTEGER REFERENCES usuarios(id),
     monto_apertura          INTEGER NOT NULL,    -- fondo fijo (~₡25.000) + monedas del cierre anterior
     estado                  TEXT    NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta','cerrada')),
     total_ventas_efectivo   INTEGER,
     total_ventas_sinpe      INTEGER,
     total_ventas_tarjeta    INTEGER,
-    total_gastos_caja       INTEGER,             -- solo gastos con origen_fondos = 'caja'
+    total_gastos_caja       INTEGER,             -- solo gastos de origen caja pagados en efectivo
     cantidad_ventas         INTEGER,
     efectivo_esperado       INTEGER,             -- monto_apertura + ventas_efectivo - gastos_caja
     efectivo_contado        INTEGER,             -- total físico contado al cerrar
@@ -239,5 +250,6 @@ CREATE INDEX idx_ventas_fecha ON ventas(fecha_hora);
 CREATE INDEX idx_venta_detalle_venta ON venta_detalle(venta_id);
 CREATE INDEX idx_venta_pagos_venta ON venta_pagos(venta_id);
 CREATE INDEX idx_inventario_producto ON inventario_movimientos(producto_id);
+CREATE INDEX idx_historial_precios_producto ON productos_historial_precios(producto_id);
 CREATE INDEX idx_pedido_detalle_pedido ON pedido_detalle(pedido_id);
 CREATE INDEX idx_pedidos_fecha_recoger ON pedidos(fecha_recoger);

@@ -14,6 +14,10 @@
     --muted-bg: #EEF1F0;
 }
 
+html, body {
+    height: 100%;
+}
+
 html {
     background: var(--bg);
 }

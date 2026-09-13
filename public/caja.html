@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Caja</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    .caja-monto { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+    .caja-diferencia { font-size: 1.8rem; font-weight: 700; }
+    .caja-diferencia.negativa { color: var(--danger); }
+    .caja-diferencia.positiva { color: var(--accent); }
+    .resumen-caja { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+    .dato-caja { background: var(--muted-bg); border: 1px solid var(--border); border-radius: 8px; padding: .85rem; }
+    .dato-caja small { display: block; color: var(--ink-soft); font-size: .76rem; }
+    .dato-caja strong { display: block; margin-top: .2rem; font-size: 1.1rem; }
+    .tabla-caja { font-size: .88rem; }
+    .tabla-caja th { color: var(--ink-soft); font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
+    .caja-abierta { color: var(--accent); font-weight: 700; }
+    .caja-cerrada { color: var(--ink-soft); font-weight: 600; }
+    @media (max-width: 800px) { .resumen-caja { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body data-pagina="caja">
+<div id="app-nav"></div>
+
+<main class="container-fluid py-4">
+    <div id="estado-pagina" class="mb-4"></div>
+
+    <section id="panel-abrir" class="panel d-none mb-4">
+        <h2>Abrir caja</h2>
+        <p class="text-muted small">Indica cuánto efectivo físico queda dentro de la caja al iniciar el turno.</p>
+        <form id="form-abrir" class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+                <label class="form-label" for="monto-apertura">Monto de apertura (₡)</label>
+                <input class="form-control" id="monto-apertura" type="number" min="0" step="1" required>
+            </div>
+            <div class="col-12 col-md-4">
+                <button class="btn btn-accent w-100" type="submit">Abrir caja</button>
+            </div>
+        </form>
+        <div class="estado-mensaje mt-2" id="estado-abrir"></div>
+    </section>
+
+    <section id="panel-activa" class="d-none">
+        <div class="panel mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <h2 class="mb-1">Caja abierta</h2>
+                    <div class="text-muted small" id="detalle-apertura"></div>
+                </div>
+                <button class="btn btn-outline-danger" id="btn-mostrar-cierre" type="button">Cerrar caja</button>
+            </div>
+            <div class="resumen-caja">
+                <div class="dato-caja"><small>Efectivo esperado</small><strong class="caja-monto" id="r-esperado">₡0</strong></div>
+                <div class="dato-caja"><small>Monto de apertura</small><strong id="r-apertura">₡0</strong></div>
+                <div class="dato-caja"><small>Gastos en efectivo</small><strong id="r-gastos">₡0</strong></div>
+                <div class="dato-caja"><small>Ventas en efectivo</small><strong id="r-efectivo">₡0</strong></div>
+                <div class="dato-caja"><small>Ventas por SINPE</small><strong id="r-sinpe">₡0</strong></div>
+                <div class="dato-caja"><small>Ventas con tarjeta</small><strong id="r-tarjeta">₡0</strong></div>
+                <div class="dato-caja"><small>Total de ventas</small><strong id="r-total">₡0</strong></div>
+                <div class="dato-caja"><small>Cantidad de ventas</small><strong id="r-cantidad">0</strong></div>
+            </div>
+        </div>
+
+        <div class="panel d-none" id="panel-cierre">
+            <h2>Cerrar caja</h2>
+            <p class="text-muted small">Cuenta únicamente el efectivo físico. SINPE y tarjeta ya están separados del efectivo esperado.</p>
+            <form id="form-cierre" class="row g-3">
+                <div class="col-12 col-md-5">
+                    <label class="form-label" for="efectivo-contado">Efectivo contado (₡)</label>
+                    <input class="form-control" id="efectivo-contado" type="number" min="0" step="1" required>
+                </div>
+                <div class="col-12 col-md-5">
+                    <label class="form-label" for="monto-dejado">Monto dejado para la siguiente caja (opcional)</label>
+                    <input class="form-control" id="monto-dejado" type="number" min="0" step="1">
+                </div>
+                <div class="col-12">
+                    <div class="text-muted small">Diferencia calculada</div>
+                    <div class="caja-diferencia" id="diferencia-cierre">₡0</div>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-danger" type="submit">Confirmar cierre</button>
+                    <button class="btn btn-outline-secondary" id="btn-cancelar-cierre" type="button">Cancelar</button>
+                </div>
+            </form>
+            <div class="estado-mensaje mt-2" id="estado-cierre"></div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0">Historial de cierres</h2>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-recargar" type="button">Recargar</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table tabla-caja align-middle">
+                <thead><tr><th>Apertura</th><th>Cierre</th><th>Abrió</th><th>Cerró</th><th>Esperado</th><th>Contado</th><th>Diferencia</th><th>Ventas</th><th>Gastos efectivo</th></tr></thead>
+                <tbody id="tbody-historial"></tbody>
+            </table>
+            <div class="vacio d-none" id="historial-vacio">Aún no hay cierres registrados.</div>
+        </div>
+    </section>
+</main>
+
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+let estadoCaja = null;
+
+function colones(valor) {
+    return '₡' + Number(valor || 0).toLocaleString('es-CR');
+}
+
+function escaparHtml(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+}
+
+function fechaLocal(fecha) {
+    if (!fecha) return '—';
+    return new Date(String(fecha).replace(' ', 'T') + 'Z').toLocaleString('es-CR');
+}
+
+function actualizarDiferencia() {
+    if (!estadoCaja?.resumen) return;
+    const contado = Number(document.getElementById('efectivo-contado').value) || 0;
+    const diferencia = contado - estadoCaja.resumen.efectivo_esperado;
+    const elemento = document.getElementById('diferencia-cierre');
+    elemento.textContent = colones(diferencia);
+    elemento.className = `caja-diferencia ${diferencia < 0 ? 'negativa' : 'positiva'}`;
+}
+
+function renderEstado() {
+    const abrir = document.getElementById('panel-abrir');
+    const activa = document.getElementById('panel-activa');
+    const pagina = document.getElementById('estado-pagina');
+    const resumen = estadoCaja?.resumen;
+    abrir.classList.toggle('d-none', Boolean(estadoCaja?.abierta));
+    activa.classList.toggle('d-none', !estadoCaja?.abierta);
+
+    if (!estadoCaja?.abierta) {
+        pagina.innerHTML = '<div class="alert alert-secondary">No hay una caja abierta.</div>';
+        return;
+    }
+
+    pagina.innerHTML = '<div class="alert alert-success">Caja abierta y registrando las operaciones actuales.</div>';
+    document.getElementById('detalle-apertura').textContent = `Abierta ${fechaLocal(estadoCaja.caja.fecha_hora_apertura)} por ${estadoCaja.caja.usuario_nombre}`;
+    document.getElementById('r-esperado').textContent = colones(resumen.efectivo_esperado);
+    document.getElementById('r-apertura').textContent = colones(estadoCaja.caja.monto_apertura);
+    document.getElementById('r-gastos').textContent = colones(resumen.gastos_caja);
+    document.getElementById('r-efectivo').textContent = colones(resumen.ventas_efectivo);
+    document.getElementById('r-sinpe').textContent = colones(resumen.ventas_sinpe);
+    document.getElementById('r-tarjeta').textContent = colones(resumen.ventas_tarjeta);
+    document.getElementById('r-total').textContent = colones(resumen.total_ventas);
+    document.getElementById('r-cantidad').textContent = resumen.cantidad_ventas;
+    actualizarDiferencia();
+}
+
+async function cargarHistorial() {
+    const respuesta = await fetch(`${API_BASE}/caja/historial`);
+    if (!respuesta.ok) throw new Error('No se pudo cargar el historial de Caja');
+    const cierres = await respuesta.json();
+    document.getElementById('historial-vacio').classList.toggle('d-none', cierres.length > 0);
+    document.getElementById('tbody-historial').innerHTML = cierres.map(cierre => `<tr>
+        <td>${escaparHtml(fechaLocal(cierre.fecha_hora_apertura))}</td>
+        <td>${escaparHtml(fechaLocal(cierre.fecha_hora_cierre))}</td>
+        <td>${escaparHtml(cierre.usuario_nombre)}</td>
+        <td>${escaparHtml(cierre.cerrado_por_nombre || '—')}</td>
+        <td>${colones(cierre.efectivo_esperado)}</td>
+        <td>${colones(cierre.efectivo_contado)}</td>
+        <td class="${cierre.diferencia < 0 ? 'text-danger' : 'text-success'}">${colones(cierre.diferencia)}</td>
+        <td>${colones((cierre.total_ventas_efectivo || 0) + (cierre.total_ventas_sinpe || 0) + (cierre.total_ventas_tarjeta || 0))} (${cierre.cantidad_ventas || 0})</td>
+        <td>${colones(cierre.total_gastos_caja)}</td>
+    </tr>`).join('');
+}
+
+async function cargarTodo() {
+    try {
+        const respuesta = await fetch(`${API_BASE}/caja/estado`);
+        if (!respuesta.ok) throw new Error('No se pudo cargar el estado de Caja');
+        estadoCaja = await respuesta.json();
+        renderEstado();
+        await cargarHistorial();
+    } catch (error) {
+        document.getElementById('estado-pagina').innerHTML = `<div class="alert alert-danger">${escaparHtml(error.message)}</div>`;
+    }
+}
+
+document.getElementById('form-abrir').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const estado = document.getElementById('estado-abrir');
+    try {
+        const respuesta = await fetch(`${API_BASE}/caja/abrir`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto_apertura: Number(document.getElementById('monto-apertura').value) })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo abrir la caja');
+        evento.target.reset();
+        estado.textContent = '';
+        await cargarTodo();
+    } catch (error) { estado.className = 'estado-mensaje mt-2 text-danger'; estado.textContent = error.message; }
+});
+
+document.getElementById('btn-mostrar-cierre').addEventListener('click', () => {
+    document.getElementById('panel-cierre').classList.remove('d-none');
+    document.getElementById('efectivo-contado').focus();
+});
+document.getElementById('btn-cancelar-cierre').addEventListener('click', () => document.getElementById('panel-cierre').classList.add('d-none'));
+document.getElementById('efectivo-contado').addEventListener('input', actualizarDiferencia);
+
+document.getElementById('form-cierre').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const estado = document.getElementById('estado-cierre');
+    try {
+        const respuesta = await fetch(`${API_BASE}/caja/cerrar`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                efectivo_contado: Number(document.getElementById('efectivo-contado').value),
+                monto_dejado_siguiente: document.getElementById('monto-dejado').value || null
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo cerrar la caja');
+        evento.target.reset();
+        document.getElementById('panel-cierre').classList.add('d-none');
+        await cargarTodo();
+    } catch (error) { estado.className = 'estado-mensaje mt-2 text-danger'; estado.textContent = error.message; }
+});
+
+document.getElementById('btn-recargar').addEventListener('click', cargarTodo);
+cargarTodo();
+</script>
+</body>
+</html>

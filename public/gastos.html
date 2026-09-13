@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Gastos</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    .resumen-gastos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+    .resumen-gasto { background: var(--muted-bg); border: 1px solid var(--border); border-radius: 8px; padding: .85rem; }
+    .resumen-gasto small { display: block; color: var(--ink-soft); font-size: .75rem; }
+    .resumen-gasto strong { display: block; margin-top: .25rem; font-size: 1.15rem; }
+    .tabla-gastos { font-size: .88rem; }
+    .tabla-gastos th { color: var(--ink-soft); font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
+    .origen-caja { color: var(--danger); font-weight: 600; }
+    .origen-externo { color: var(--accent); font-weight: 600; }
+    @media (max-width: 900px) { .resumen-gastos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body data-pagina="gastos">
+<div id="app-nav"></div>
+
+<main class="container-fluid py-4">
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-4">
+            <div class="panel">
+                <h2>Registrar gasto</h2>
+                <p class="text-muted small">Solo los gastos pagados en efectivo desde Caja se descontarán del efectivo esperado al cerrar.</p>
+                <form id="form-gasto">
+                    <label class="form-label" for="g-categoria">Categoría</label>
+                    <input class="form-control mb-2" id="g-categoria" maxlength="80" placeholder="Ej. Transporte, limpieza, hielo" required>
+                    <label class="form-label" for="g-monto">Monto (₡)</label>
+                    <input class="form-control mb-2" id="g-monto" type="number" min="1" step="1" required>
+                    <label class="form-label" for="g-metodo">Método de pago</label>
+                    <select class="form-select mb-2" id="g-metodo" required>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="sinpe">SINPE móvil</option>
+                        <option value="tarjeta">Tarjeta</option>
+                    </select>
+                    <label class="form-label" for="g-origen">Origen de fondos</label>
+                    <select class="form-select mb-2" id="g-origen" required>
+                        <option value="caja">Caja</option>
+                        <option value="externo">Externo (no resta Caja)</option>
+                    </select>
+                    <label class="form-label" for="g-descripcion">Descripción (opcional)</label>
+                    <textarea class="form-control mb-3" id="g-descripcion" maxlength="240" rows="2" placeholder="Detalle del gasto"></textarea>
+                    <button class="btn btn-accent w-100" type="submit">Guardar gasto</button>
+                </form>
+                <div class="estado-mensaje mt-2" id="g-estado"></div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-8">
+            <div class="panel h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">Resumen de gastos</h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-recargar" type="button">Recargar</button>
+                </div>
+                <div class="resumen-gastos">
+                    <div class="resumen-gasto"><small>Total registrado</small><strong id="r-total">₡0</strong></div>
+                    <div class="resumen-gasto"><small>Efectivo que sale de Caja</small><strong id="r-caja">₡0</strong></div>
+                    <div class="resumen-gasto"><small>Fondos externos</small><strong id="r-externo">₡0</strong></div>
+                    <div class="resumen-gasto"><small>Cantidad de gastos</small><strong id="r-cantidad">0</strong></div>
+                </div>
+                <p class="text-muted small mt-3 mb-0">Caja utilizará únicamente gastos con origen Caja y método Efectivo.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0">Historial de gastos</h2>
+            <span class="text-muted small">Los registros quedan guardados para el cierre.</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table tabla-gastos align-middle">
+                <thead><tr><th>Fecha</th><th>Categoría</th><th>Monto</th><th>Método</th><th>Origen</th><th>Descripción</th><th>Usuario</th></tr></thead>
+                <tbody id="tbody-gastos"></tbody>
+            </table>
+            <div class="vacio d-none" id="gastos-vacios">Aún no hay gastos registrados.</div>
+        </div>
+    </div>
+</main>
+
+<script src="js/nav.js"></script>
+<script>
+const API_BASE = '/api';
+
+function escaparHtml(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+}
+
+function colones(valor) {
+    return '₡' + Number(valor || 0).toLocaleString('es-CR');
+}
+
+function etiquetaMetodo(metodo) {
+    return { efectivo: 'Efectivo', sinpe: 'SINPE', tarjeta: 'Tarjeta' }[metodo] || metodo;
+}
+
+function fechaLocal(fecha) {
+    return new Date(String(fecha).replace(' ', 'T') + 'Z').toLocaleString('es-CR');
+}
+
+async function cargarResumen() {
+    const respuesta = await fetch(`${API_BASE}/gastos/resumen`);
+    if (!respuesta.ok) throw new Error('No se pudo cargar el resumen');
+    const resumen = await respuesta.json();
+    document.getElementById('r-total').textContent = colones(resumen.total);
+    document.getElementById('r-caja').textContent = colones(resumen.total_caja);
+    document.getElementById('r-externo').textContent = colones(resumen.total_externo);
+    document.getElementById('r-cantidad').textContent = resumen.cantidad;
+}
+
+async function cargarGastos() {
+    const tbody = document.getElementById('tbody-gastos');
+    const vacio = document.getElementById('gastos-vacios');
+    const respuesta = await fetch(`${API_BASE}/gastos`);
+    if (!respuesta.ok) throw new Error('No se pudo cargar el historial');
+    const gastos = await respuesta.json();
+    vacio.classList.toggle('d-none', gastos.length > 0);
+    tbody.innerHTML = gastos.map(gasto => `<tr>
+        <td>${escaparHtml(fechaLocal(gasto.fecha_hora))}</td>
+        <td>${escaparHtml(gasto.categoria)}</td>
+        <td>${colones(gasto.monto)}</td>
+        <td>${escaparHtml(etiquetaMetodo(gasto.metodo_pago))}</td>
+        <td class="${gasto.origen_fondos === 'caja' ? 'origen-caja' : 'origen-externo'}">${gasto.origen_fondos === 'caja' ? 'Caja' : 'Externo'}</td>
+        <td>${escaparHtml(gasto.descripcion || '—')}</td>
+        <td>${escaparHtml(gasto.usuario_nombre)}</td>
+    </tr>`).join('');
+}
+
+async function cargarTodo() {
+    try {
+        await Promise.all([cargarResumen(), cargarGastos()]);
+    } catch (error) {
+        document.getElementById('tbody-gastos').innerHTML = `<tr><td colspan="7" class="text-danger">${escaparHtml(error.message)}</td></tr>`;
+    }
+}
+
+document.getElementById('form-gasto').addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const estado = document.getElementById('g-estado');
+    estado.className = 'estado-mensaje mt-2 text-muted';
+    estado.textContent = 'Guardando...';
+    try {
+        const respuesta = await fetch(`${API_BASE}/gastos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                categoria: document.getElementById('g-categoria').value,
+                monto: Number(document.getElementById('g-monto').value),
+                metodo_pago: document.getElementById('g-metodo').value,
+                origen_fondos: document.getElementById('g-origen').value,
+                descripcion: document.getElementById('g-descripcion').value
+            })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo guardar el gasto');
+        evento.target.reset();
+        estado.className = 'estado-mensaje mt-2 text-success';
+        estado.textContent = 'Gasto guardado correctamente.';
+        await cargarTodo();
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = error.message;
+    }
+});
+
+document.getElementById('btn-recargar').addEventListener('click', cargarTodo);
+cargarTodo();
+</script>
+</body>
+</html>

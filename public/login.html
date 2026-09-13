@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POSLite — Iniciar sesión</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="css/estilo.css" rel="stylesheet">
+<style>
+    body { display: grid; place-items: center; padding: 1rem; }
+    .login-panel { width: min(100%, 32rem); }
+    .login-marca { color: var(--accent); font-size: 1.7rem; font-weight: 800; }
+    .lista-usuarios { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .75rem; }
+    .usuario-boton { text-align: left; min-height: 6.5rem; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--ink); transition: border-color .15s ease, transform .15s ease; }
+    .usuario-boton:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .usuario-nombre { display: block; font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+    .usuario-boton small { display: block; color: var(--ink-soft); }
+    .pin-seleccionado { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body data-pagina="login">
+<main class="panel login-panel">
+    <div class="login-marca mb-1">POSLite</div>
+    <h1 class="h4 mb-1">Iniciar sesión</h1>
+    <p class="text-muted small mb-4">Selecciona tu nombre y luego ingresa tu PIN.</p>
+    <div id="usuarios-box" class="mb-4">
+        <div class="form-label">¿Quién está usando POSLite?</div>
+        <div class="lista-usuarios" id="lista-usuarios">
+            <div class="text-muted small">Cargando usuarios...</div>
+        </div>
+    </div>
+    <div id="pin-box" class="d-none">
+        <div class="pin-seleccionado mb-2" id="usuario-seleccionado"></div>
+        <form id="form-login">
+        <label class="form-label" for="password">PIN o contraseña</label>
+        <input class="form-control mb-3" id="password" type="password" autocomplete="current-password" required>
+        <button class="btn btn-accent w-100" type="submit">Entrar</button>
+        </form>
+        <button class="btn btn-link btn-sm w-100" id="btn-cambiar-usuario" type="button">Elegir otro usuario</button>
+    </div>
+    <div class="estado-mensaje mt-3" id="estado-login"></div>
+</main>
+<script>
+const form = document.getElementById('form-login');
+const estado = document.getElementById('estado-login');
+const listaUsuarios = document.getElementById('lista-usuarios');
+const pinBox = document.getElementById('pin-box');
+let usuarioSeleccionado = null;
+
+async function cargarUsuarios() {
+    try {
+        const respuesta = await fetch('/api/auth/usuarios');
+        const usuarios = await respuesta.json();
+        listaUsuarios.innerHTML = usuarios.length > 0
+            ? usuarios.map(usuario => `<button class="usuario-boton" type="button" data-usuario-id="${usuario.id}"><span class="usuario-nombre">${usuario.nombre}</span><small>${usuario.rol === 'administrador' ? 'Administrador' : 'Empleado'}</small></button>`).join('')
+            : '<div class="text-muted small">No hay usuarios configurados todavía.</div>';
+    } catch (error) {
+        listaUsuarios.innerHTML = '<div class="text-danger small">No se pudieron cargar los usuarios.</div>';
+    }
+}
+
+listaUsuarios.addEventListener('click', evento => {
+    const boton = evento.target.closest('[data-usuario-id]');
+    if (!boton) return;
+    usuarioSeleccionado = Number(boton.dataset.usuarioId);
+    document.getElementById('usuario-seleccionado').textContent = `Usuario seleccionado: ${boton.childNodes[0].textContent}`;
+    document.getElementById('usuarios-box').classList.add('d-none');
+    pinBox.classList.remove('d-none');
+    document.getElementById('password').focus();
+});
+
+document.getElementById('btn-cambiar-usuario').addEventListener('click', () => {
+    usuarioSeleccionado = null;
+    document.getElementById('usuarios-box').classList.remove('d-none');
+    pinBox.classList.add('d-none');
+    form.reset();
+    estado.textContent = '';
+});
+
+form.addEventListener('submit', async evento => {
+    evento.preventDefault();
+    estado.className = 'estado-mensaje mt-3 text-muted';
+    estado.textContent = 'Comprobando...';
+    try {
+        if (!usuarioSeleccionado) throw new Error('Selecciona un usuario');
+        const respuesta = await fetch('/api/auth/login-seleccion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: usuarioSeleccionado, password: document.getElementById('password').value })
+        });
+        const tipo = respuesta.headers.get('content-type') || '';
+        if (!tipo.includes('application/json')) {
+            throw new Error('El servidor está ejecutando una versión anterior. Detén Node y vuelve a iniciar: node index.js');
+        }
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo iniciar sesión');
+        window.location.href = '/';
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-3 text-danger';
+        estado.textContent = error.message;
+    }
+});
+cargarUsuarios();
+</script>
+</body>
+</html>

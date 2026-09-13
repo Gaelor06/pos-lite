@@ -13,17 +13,29 @@
     <div class="row g-4">
         <div class="col-12 col-lg-4">
             <div class="panel">
-                <h2>Nuevo cliente</h2>
+                <h2 id="titulo-form-cliente">Nuevo cliente</h2>
                 <form id="form-crear">
+                    <input type="hidden" id="c-id">
                     <div class="mb-2">
                         <label class="form-label" for="c-nombre">Nombre o empresa</label>
                         <input class="form-control" id="c-nombre" required maxlength="120">
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label" for="c-telefono">Teléfono (opcional)</label>
                         <input class="form-control" id="c-telefono" maxlength="30">
                     </div>
-                    <button class="btn btn-accent w-100" type="submit">Guardar cliente</button>
+                    <div class="mb-2">
+                        <label class="form-label" for="c-producto">Producto con precio especial (opcional)</label>
+                        <select class="form-select" id="c-producto"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="c-precio">Precio especial del producto</label>
+                        <input class="form-control" id="c-precio" type="number" min="0" step="50" placeholder="Ej. 1000">
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-accent w-100" id="btn-guardar-cliente" type="submit">Guardar cliente</button>
+                        <button class="btn btn-outline-secondary w-100 d-none" id="btn-cancelar-edicion" type="button">Cancelar edición</button>
+                    </div>
                     <div class="estado-mensaje mt-2" id="c-estado"></div>
                 </form>
             </div>
@@ -33,7 +45,7 @@
                 <h2>Clientes guardados</h2>
                 <div class="table-responsive">
                     <table class="table">
-                        <thead><tr><th>Nombre o empresa</th><th>Teléfono</th></tr></thead>
+                        <thead><tr><th>Nombre o empresa</th><th>Teléfono</th><th>Acciones</th></tr></thead>
                         <tbody id="tbody-clientes"></tbody>
                     </table>
                     <div class="vacio d-none" id="tabla-vacia">Aún no hay clientes guardados.</div>
@@ -46,9 +58,24 @@
 <script>
 const API_BASE = '/api';
 const estado = document.getElementById('c-estado');
+const formCrear = document.getElementById('form-crear');
+const inputClienteId = document.getElementById('c-id');
+const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
 
 function escaparHtml(valor) {
     return String(valor || '').replace(/[&<>"']/g, caracter => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[caracter]));
+}
+
+function formatearColones(valor) {
+    return '₡' + Number(valor).toLocaleString('es-CR');
+}
+
+function resetFormularioCliente() {
+    inputClienteId.value = '';
+    document.getElementById('titulo-form-cliente').textContent = 'Nuevo cliente';
+    document.getElementById('btn-guardar-cliente').textContent = 'Guardar cliente';
+    btnCancelarEdicion.classList.add('d-none');
+    formCrear.reset();
 }
 
 async function cargarClientes() {
@@ -59,24 +86,161 @@ async function cargarClientes() {
         if (!respuesta.ok) throw new Error('No se pudieron cargar los clientes');
         const clientes = await respuesta.json();
         vacio.classList.toggle('d-none', clientes.length > 0);
-        tbody.innerHTML = clientes.map(cliente => `<tr><td>${escaparHtml(cliente.nombre)}</td><td>${escaparHtml(cliente.telefono || '—')}</td></tr>`).join('');
+        tbody.innerHTML = clientes.map(cliente => `
+            <tr>
+                <td>${escaparHtml(cliente.nombre)}</td>
+                <td>${escaparHtml(cliente.telefono || '—')}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary editar-cliente me-2" data-id="${cliente.id}" type="button">Editar</button>
+                    <button class="btn btn-sm btn-outline-danger desactivar-cliente" data-id="${cliente.id}" type="button">Desactivar</button>
+                </td>
+            </tr>
+        `).join('');
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="2" class="text-danger">${escaparHtml(error.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="text-danger">${escaparHtml(error.message)}</td></tr>`;
     }
 }
 
+async function cargarProductosEspeciales() {
+    try {
+        const respuesta = await fetch(`${API_BASE}/productos`);
+        if (!respuesta.ok) throw new Error('No se pudieron cargar los productos');
+        const productos = await respuesta.json();
+        const selectProductos = document.getElementById('c-producto');
+        selectProductos.innerHTML = '<option value="">Sin precio especial</option>' + productos.filter(producto => producto.activo).map(producto => `<option value="${producto.id}">${escaparHtml(producto.nombre)} · ${formatearColones(producto.precio_venta)}</option>`).join('');
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = error.message;
+    }
+}
+
+async function cargarDatosClienteParaEditar(clienteId) {
+    try {
+        const respuesta = await fetch(`${API_BASE}/clientes/${clienteId}`);
+        if (!respuesta.ok) throw new Error('No se pudo cargar el cliente');
+        const cliente = await respuesta.json();
+
+        inputClienteId.value = cliente.id;
+        document.getElementById('c-nombre').value = cliente.nombre || '';
+        document.getElementById('c-telefono').value = cliente.telefono || '';
+        document.getElementById('titulo-form-cliente').textContent = 'Editar cliente';
+        document.getElementById('btn-guardar-cliente').textContent = 'Guardar cambios';
+        btnCancelarEdicion.classList.remove('d-none');
+
+        const respuestaPrecios = await fetch(`${API_BASE}/clientes/${clienteId}/precios`);
+        if (respuestaPrecios.ok) {
+            const precios = await respuestaPrecios.json();
+            if (precios.length > 0) {
+                const primerPrecio = precios[0];
+                document.getElementById('c-producto').value = String(primerPrecio.producto_id);
+                document.getElementById('c-precio').value = primerPrecio.precio_especial;
+            } else {
+                document.getElementById('c-producto').value = '';
+                document.getElementById('c-precio').value = '';
+            }
+        }
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = error.message;
+    }
+}
+
+document.getElementById('tbody-clientes').addEventListener('click', async evento => {
+    const botonEditar = evento.target.closest('.editar-cliente');
+    if (botonEditar) {
+        await cargarDatosClienteParaEditar(Number(botonEditar.dataset.id));
+        return;
+    }
+
+    const botonDesactivar = evento.target.closest('.desactivar-cliente');
+    if (!botonDesactivar) return;
+
+    const clienteId = Number(botonDesactivar.dataset.id);
+    const confirmado = window.confirm('¿Deseas desactivar este cliente? Se ocultará de la venta, pero quedará registrado en el historial.');
+    if (!confirmado) return;
+
+    try {
+        const respuesta = await fetch(`${API_BASE}/clientes/${clienteId}/activo`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activo: false })
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo desactivar el cliente');
+        estado.className = 'estado-mensaje mt-2 text-success';
+        estado.textContent = 'Cliente desactivado.';
+        cargarClientes();
+    } catch (error) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = error.message;
+    }
+});
+
+document.getElementById('btn-cancelar-edicion').addEventListener('click', () => {
+    resetFormularioCliente();
+    estado.textContent = '';
+});
+
 document.getElementById('form-crear').addEventListener('submit', async evento => {
     evento.preventDefault();
+    const clienteId = Number(inputClienteId.value) || null;
+    const nombre = document.getElementById('c-nombre').value.trim();
+    const telefono = document.getElementById('c-telefono').value.trim();
+    const productoId = Number(document.getElementById('c-producto').value);
+    const precioEspecial = Number(document.getElementById('c-precio').value);
+
+    if (!nombre) {
+        estado.className = 'estado-mensaje mt-2 text-danger';
+        estado.textContent = 'El nombre del cliente es obligatorio.';
+        return;
+    }
+
     estado.className = 'estado-mensaje mt-2 text-muted';
-    estado.textContent = 'Guardando...';
+    estado.textContent = clienteId ? 'Guardando cambios...' : 'Guardando...';
+
     try {
-        const respuesta = await fetch(`${API_BASE}/clientes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: document.getElementById('c-nombre').value, telefono: document.getElementById('c-telefono').value }) });
-        const datos = await respuesta.json();
-        if (!respuesta.ok) throw new Error(datos.error || 'No se pudo guardar el cliente');
+        let clienteGuardado;
+        if (clienteId) {
+            const respuesta = await fetch(`${API_BASE}/clientes/${clienteId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, telefono })
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok) throw new Error(datos.error || 'No se pudo actualizar el cliente');
+            clienteGuardado = datos;
+        } else {
+            const respuesta = await fetch(`${API_BASE}/clientes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, telefono })
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok) throw new Error(datos.error || 'No se pudo guardar el cliente');
+            clienteGuardado = datos;
+        }
+
+        const clienteFinalId = Number(clienteGuardado.id || clienteId);
+        if (productoId && Number.isFinite(precioEspecial) && precioEspecial >= 0) {
+            const respuestaPrecio = await fetch(`${API_BASE}/clientes/precios`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cliente_id: clienteFinalId,
+                    producto_id: productoId,
+                    precio_especial: precioEspecial
+                })
+            });
+            const datosPrecio = await respuestaPrecio.json();
+            if (!respuestaPrecio.ok) {
+                throw new Error(datosPrecio.error || 'No se pudo guardar el precio especial del cliente');
+            }
+        }
+
         estado.className = 'estado-mensaje mt-2 text-success';
-        estado.textContent = 'Cliente guardado.';
+        estado.textContent = clienteId ? 'Cliente actualizado.' : 'Cliente guardado.';
         setTimeout(() => { estado.textContent = ''; }, 3000);
-        document.getElementById('form-crear').reset();
+        resetFormularioCliente();
         cargarClientes();
     } catch (error) {
         estado.className = 'estado-mensaje mt-2 text-danger';
@@ -85,6 +249,7 @@ document.getElementById('form-crear').addEventListener('submit', async evento =>
 });
 
 cargarClientes();
+cargarProductosEspeciales();
 </script>
 </body>
 </html>
